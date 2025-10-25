@@ -1,0 +1,1612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dithering Studio Pro</title>
+    <style>
+        :root {
+            --bg: #0a0a0a;
+            --panel: #1a1a1a;
+            --border: #00ff41;
+            --text: #00ff41;
+            --accent: #00cc33;
+            --hover: #00ff80;
+            --error: #ff0044;
+            --success: #00ff41;
+            --warning: #ffaa00;
+            --glow: rgba(0, 255, 65, 0.6);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Courier New', monospace;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            padding: 15px;
+            line-height: 1.5;
+            background-image: 
+                repeating-linear-gradient(45deg, transparent, transparent 35px, rgba(0,255,65,0.03) 35px, rgba(0,255,65,0.03) 70px),
+                repeating-linear-gradient(-45deg, transparent, transparent 35px, rgba(0,255,65,0.03) 35px, rgba(0,255,65,0.03) 70px);
+            overflow-x: hidden;
+        }
+
+        .crt-overlay {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            pointer-events: none;
+            background: repeating-linear-gradient(0deg, rgba(0,0,0,0), rgba(0,0,0,0) 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px);
+            z-index: 1000;
+            opacity: 0.3;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            gap: 20px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .main-panel {
+            background: var(--panel);
+            border: 2px solid var(--border);
+            padding: 20px;
+            box-shadow: 0 0 25px var(--glow);
+            border-radius: 8px;
+        }
+
+        .controls-panel {
+            background: var(--panel);
+            border: 2px solid var(--border);
+            padding: 20px;
+            height: fit-content;
+            position: sticky;
+            top: 15px;
+            box-shadow: 0 0 25px var(--glow);
+            border-radius: 8px;
+            max-height: calc(100vh - 50px);
+            overflow-y: auto;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 2.8em;
+            text-shadow: 0 0 15px var(--border);
+            letter-spacing: 3px;
+            background: linear-gradient(90deg, #00ff41, #00cc33, #00ff41);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.8; }
+        }
+
+        .upload-area {
+            border: 3px dashed var(--border);
+            border-radius: 12px;
+            padding: 50px;
+            text-align: center;
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .upload-area::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: radial-gradient(circle at center, transparent 0%, rgba(0,255,65,0.1) 100%);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .upload-area:hover::before, .upload-area.dragover::before {
+            opacity: 1;
+        }
+
+        .upload-area:hover {
+            background: rgba(0, 255, 65, 0.15);
+            box-shadow: 0 0 20px var(--glow);
+            transform: translateY(-2px);
+        }
+
+        .upload-area.dragover {
+            background: rgba(0, 255, 65, 0.25);
+            border-color: var(--hover);
+            transform: scale(1.02);
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .btn {
+            background: transparent;
+            border: 2px solid var(--border);
+            color: var(--text);
+            padding: 12px 24px;
+            margin: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            border-radius: 6px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0; left: -100%;
+            width: 100%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(0,255,65,0.3), transparent);
+            transition: left 0.5s;
+        }
+
+        .btn:hover::before {
+            left: 100%;
+        }
+
+        .btn:hover {
+            background: rgba(0, 255, 65, 0.2);
+            box-shadow: 0 0 20px var(--glow);
+            transform: translateY(-2px);
+        }
+
+        .btn.active {
+            background: var(--accent);
+            color: black;
+            box-shadow: 0 0 15px var(--glow);
+        }
+
+        .btn.small {
+            padding: 8px 16px;
+            font-size: 0.9em;
+        }
+
+        .canvas-container {
+            display: flex;
+            justify-content: center;
+            gap: 25px;
+            margin: 25px 0;
+            flex-wrap: wrap;
+            position: relative;
+        }
+
+        .canvas-wrapper {
+            text-align: center;
+            position: relative;
+            transition: transform 0.3s;
+        }
+
+        .canvas-wrapper:hover {
+            transform: scale(1.02);
+        }
+
+        .canvas-wrapper h3 {
+            margin: 12px 0;
+            text-shadow: 0 0 8px var(--border);
+            font-size: 1.3em;
+            position: relative;
+        }
+
+        .canvas-wrapper h3::after {
+            content: '';
+            position: absolute;
+            bottom: -5px; left: 50%;
+            transform: translateX(-50%);
+            width: 60%; height: 2px;
+            background: var(--border);
+            box-shadow: 0 0 8px var(--glow);
+        }
+
+        canvas {
+            border: 2px solid var(--border);
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+            max-width: 100%;
+            height: auto;
+            box-shadow: 0 0 20px rgba(0,255,65,0.4);
+            border-radius: 6px;
+            transition: all 0.3s;
+        }
+
+        canvas:hover {
+            box-shadow: 0 0 30px var(--glow);
+        }
+
+        .section {
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px dashed var(--border);
+            position: relative;
+        }
+
+        .section:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+
+        .section h3 {
+            margin-bottom: 18px;
+            color: var(--accent);
+            text-shadow: 0 0 8px var(--accent);
+            font-size: 1.4em;
+            position: relative;
+            display: inline-block;
+        }
+
+        .section h3::after {
+            content: '';
+            position: absolute;
+            bottom: -6px; left: 0;
+            width: 100%; height: 3px;
+            background: linear-gradient(90deg, var(--accent), transparent);
+        }
+
+        .radio-group, .checkbox-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 15px;
+        }
+
+        .radio-item, .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(0,255,65,0.05);
+            padding: 6px 12px;
+            border-radius: 6px;
+            transition: all 0.3s;
+        }
+
+        .radio-item:hover, .checkbox-item:hover {
+            background: rgba(0,255,65,0.15);
+            transform: translateY(-1px);
+        }
+
+        input[type="radio"], input[type="checkbox"] {
+            accent-color: var(--accent);
+            transform: scale(1.2);
+        }
+
+        .palette-preview {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+            flex-wrap: wrap;
+            padding: 10px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 6px;
+            border: 1px dashed var(--border);
+        }
+
+        .palette-swatch {
+            width: 36px;
+            height: 36px;
+            border: 2px solid var(--border);
+            box-shadow: 0 0 10px var(--glow);
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+        }
+
+        .palette-swatch:hover {
+            transform: scale(1.2);
+            z-index: 10;
+            box-shadow: 0 0 20px var(--glow);
+        }
+
+        .palette-swatch.removable::after {
+            content: '×';
+            position: absolute;
+            top: -8px; right: -8px;
+            background: var(--error);
+            color: white;
+            width: 18px; height: 18px;
+            border-radius: 50%;
+            font-weight: bold;
+            font-size: 12px;
+            line-height: 18px;
+            text-align: center;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .palette-swatch.removable:hover::after {
+            opacity: 1;
+        }
+
+        .custom-palette-inputs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-top: 12px;
+        }
+
+        input[type="color"] {
+            width: 100%;
+            height: 50px;
+            border: 2px solid var(--border);
+            cursor: pointer;
+            border-radius: 6px;
+            transition: all 0.3s;
+        }
+
+        input[type="color"]:hover {
+            box-shadow: 0 0 15px var(--glow);
+            transform: scale(1.05);
+        }
+
+        .slider-container {
+            margin: 18px 0;
+            position: relative;
+        }
+
+        .slider-label {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+
+        .slider-label .icon {
+            font-size: 1.2em;
+            margin-right: 8px;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            accent-color: var(--accent);
+            height: 8px;
+            border-radius: 4px;
+            background: rgba(0,255,65,0.2);
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--accent);
+            box-shadow: 0 0 15px var(--glow);
+            cursor: pointer;
+        }
+
+        .value-display {
+            color: var(--accent);
+            font-weight: bold;
+            min-width: 40px;
+            text-align: right;
+            background: rgba(0,0,0,0.5);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
+
+        .download-btn {
+            display: block;
+            margin: 25px auto;
+            padding: 18px 40px;
+            font-size: 1.3em;
+            width: 90%;
+            background: linear-gradient(45deg, var(--accent), #00ff80);
+            color: black;
+            font-weight: bold;
+        }
+
+        .status {
+            text-align: center;
+            margin: 15px 0;
+            padding: 12px;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 1.1em;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .status::before {
+            content: '';
+            position: absolute;
+            top: 0; left: -100%;
+            width: 100%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            animation: shimmer 2s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { left: -100%; }
+            100% { left: 100%; }
+        }
+
+        .status.error {
+            background: rgba(255, 0, 68, 0.3);
+            border: 1px solid var(--error);
+            color: var(--error);
+        }
+
+        .status.success {
+            background: rgba(0, 255, 65, 0.3);
+            border: 1px solid var(--success);
+            color: var(--success);
+        }
+
+        .status.warning {
+            background: rgba(255, 170, 0, 0.3);
+            border: 1px solid var(--warning);
+            color: var(--warning);
+        }
+
+        .advanced-toggle {
+            background: transparent;
+            border: 1px dashed var(--border);
+            color: var(--text);
+            padding: 8px 16px;
+            margin: 10px 0;
+            cursor: pointer;
+            width: 100%;
+            text-align: center;
+            font-size: 0.9em;
+        }
+
+        .advanced-section {
+            border: 1px dashed var(--border);
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 10px;
+            background: rgba(0,255,65,0.05);
+        }
+
+        .advanced-section.collapsed {
+            display: none;
+        }
+
+        .color-mode-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .preset-palette {
+            padding: 10px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: center;
+            font-size: 0.9em;
+        }
+
+        .preset-palette:hover {
+            background: rgba(0,255,65,0.2);
+            transform: translateY(-2px);
+        }
+
+        .preset-palette.active {
+            background: var(--accent);
+            color: black;
+        }
+
+        .live-preview-toggle {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 15px 0;
+            padding: 10px;
+            background: rgba(0,255,65,0.1);
+            border-radius: 6px;
+        }
+
+        .live-preview-toggle label {
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .performance-info {
+            font-size: 0.8em;
+            color: #00aa00;
+            text-align: center;
+            margin-top: 10px;
+            font-style: italic;
+        }
+
+        @media (max-width: 1100px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+            
+            .controls-panel {
+                position: static;
+                max-height: none;
+            }
+        }
+
+        @media (max-width: 600px) {
+            .custom-palette-inputs {
+                grid-template-columns: 1fr;
+            }
+            
+            .color-mode-group {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .tooltip {
+            position: relative;
+            display: inline-block;
+        }
+
+        .tooltip .tooltiptext {
+            visibility: hidden;
+            width: 200px;
+            background-color: rgba(0,0,0,0.8);
+            color: var(--text);
+            text-align: center;
+            border-radius: 6px;
+            padding: 8px;
+            position: absolute;
+            z-index: 100;
+            bottom: 125%;
+            left: 50%;
+            margin-left: -100px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            font-size: 0.8em;
+            border: 1px solid var(--border);
+        }
+
+        .tooltip:hover .tooltiptext {
+            visibility: visible;
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <div class="crt-overlay"></div>
+    
+    <div class="container">
+        <div class="main-panel">
+            <h1>DITHERING STUDIO PRO</h1>
+            
+            <div class="upload-area" id="uploadArea">
+                <p>Drop an image here or click to upload</p>
+                <p style="font-size:0.9em; margin-top:8px; opacity:0.7;">Supports PNG, JPG, GIF, WebP</p>
+                <input type="file" id="fileInput" class="file-input" accept="image/*">
+            </div>
+            
+            <div id="status" class="status" style="display: none;"></div>
+            
+            <div class="canvas-container">
+                <div class="canvas-wrapper">
+                    <h3>Original</h3>
+                    <canvas id="originalCanvas"></canvas>
+                </div>
+                <div class="canvas-wrapper">
+                    <h3>Live Preview</h3>
+                    <canvas id="ditheredCanvas"></canvas>
+                    <div class="performance-info" id="perfInfo">Real-time preview active</div>
+                </div>
+            </div>
+            
+            <button class="btn download-btn" id="downloadBtn" style="display: none;">
+                Download High-Res Dithered Image
+            </button>
+        </div>
+        
+        <div class="controls-panel">
+            <div class="section">
+                <h3>Live Preview</h3>
+                <div class="live-preview-toggle">
+                    <input type="checkbox" id="livePreview" checked>
+                    <label for="livePreview">Enable Real-Time Preview</label>
+                </div>
+                <div class="slider-container">
+                    <label class="slider-label">
+                        <span>Preview Quality:</span>
+                        <span class="value-display" id="qualityValue">75</span>%
+                    </label>
+                    <input type="range" id="previewQuality" min="10" max="100" value="75">
+                </div>
+            </div>
+
+            <div class="section">
+                <h3>Dithering Algorithm</h3>
+                <div class="radio-group">
+                    <div class="radio-item tooltip">
+                        <input type="radio" id="floyd" name="algorithm" value="floyd" checked>
+                        <label for="floyd">Floyd-Steinberg</label>
+                        <span class="tooltiptext">Classic error diffusion with excellent gradient reproduction</span>
+                    </div>
+                    <div class="radio-item tooltip">
+                        <input type="radio" id="atkinson" name="algorithm" value="atkinson">
+                        <label for="atkinson">Atkinson</label>
+                        <span class="tooltiptext">Preserves more detail, less error diffusion</span>
+                    </div>
+                    <div class="radio-item tooltip">
+                        <input type="radio" id="bayer" name="algorithm" value="bayer">
+                        <label for="bayer">Ordered (Bayer)</label>
+                        <span class="tooltiptext">Pattern-based dithering, fast and predictable</span>
+                    </div>
+                </div>
+                
+                <div id="bayerOptions">
+                    <div class="slider-container">
+                        <label class="slider-label">
+                            <span class="icon">Matrix Size:</span>
+                            <span class="value-display" id="bayerSizeValue1">4</span>x<span class="value-display" id="bayerSizeValue2">4</span>
+                        </label>
+                        <input type="range" id="bayerSize" min="2" max="8" value="4" step="2">
+                    </div>
+                    <div class="slider-container">
+                        <label class="slider-label">
+                            <span class="icon">Threshold:</span>
+                            <span class="value-display" id="bayerThresholdValue">50</span>%
+                        </label>
+                        <input type="range" id="bayerThreshold" min="0" max="100" value="50">
+                    </div>
+                </div>
+
+                <button class="btn advanced-toggle" id="advancedDitherToggle">
+                    Advanced Dithering Options
+                </button>
+                <div class="advanced-section collapsed" id="advancedDither">
+                    <div class="slider-container">
+                        <label class="slider-label">
+                            <span class="icon">Error Carry:</span>
+                            <span class="value-display" id="errorCarryValue">100</span>%
+                        </label>
+                        <input type="range" id="errorCarry" min="50" max="150" value="100">
+                    </div>
+                    <div class="slider-container">
+                        <label class="slider-label">
+                            <span class="icon">Diffusion Bias:</span>
+                            <span class="value-display" id="diffusionBiasValue">0</span>%
+                        </label>
+                        <input type="range" id="diffusionBias" min="-50" max="50" value="0">
+                    </div>
+                    <div class="checkbox-group">
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="serpentine" checked>
+                            <label for="serpentine">Serpentine Scanning</label>
+                        </div>
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="randomStart">
+                            <label for="randomStart">Random Start Point</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="section">
+                <h3>Color Palette</h3>
+                <div class="radio-group">
+                    <div class="radio-item">
+                        <input type="radio" id="paletteGb" name="palette" value="gameboy" checked>
+                        <label for="paletteGb">GameBoy</label>
+                    </div>
+                    <div class="radio-item">
+                        <input type="radio" id="paletteCga" name="palette" value="cga">
+                        <label for="paletteCga">CGA Mode 4</label>
+                    </div>
+                    <div class="radio-item">
+                        <input type="radio" id="paletteCustom" name="palette" value="custom">
+                        <label for="paletteCustom">Custom</label>
+                    </div>
+                </div>
+                
+                <div id="palettePreview" class="palette-preview"></div>
+                
+                <div id="customPalette" style="display: none;">
+                    <div class="custom-palette-inputs" id="customColors">
+                        <input type="color" value="#0f380f">
+                        <input type="color" value="#306230">
+                        <input type="color" value="#8bac0f">
+                        <input type="color" value="#9bbc0f">
+                    </div>
+                    <div style="display: flex; gap: 8px; margin-top: 10px;">
+                        <button class="btn small" id="addColor">+ Add</button>
+                        <button class="btn small" id="clearPalette" style="background: rgba(255,0,68,0.2);">Clear</button>
+                    </div>
+                </div>
+
+                <button class="btn advanced-toggle" id="presetPalettesToggle">
+                    Preset Palettes
+                </button>
+                <div class="advanced-section collapsed" id="presetPalettes">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                        <div class="preset-palette" data-colors="#000000,#55ff55,#aaaaaa,#ffffff">Monochrome</div>
+                        <div class="preset-palette" data-colors="#000000,#ff5555,#55ff55,#ffff55">RGB</div>
+                        <div class="preset-palette" data-colors="#000000,#aa00aa,#00aaaa,#aaaaaa">CGA Mode 1</div>
+                        <div class="preset-palette" data-colors="#351330,#3e1a44,#4a215a,#5c2b72">Purple Haze</div>
+                        <div class="preset-palette" data-colors="#0d1b2a,#1b263b,#415a77,#778da9">Ocean</div>
+                        <div class="preset-palette" data-colors="#2d1b1b,#5c2e2e,#8b4141,#ba5454">Sunset</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="section">
+                <h3>Color Processing</h3>
+                <div class="color-mode-group">
+                    <div class="radio-item">
+                        <input type="radio" id="colorRgb" name="colorMode" value="rgb" checked>
+                        <label for="colorRgb">RGB</label>
+                    </div>
+                    <div class="radio-item">
+                        <input type="radio" id="colorHsl" name="colorMode" value="hsl">
+                        <label for="colorHsl">HSL</label>
+                    </div>
+                    <div class="radio-item">
+                        <input type="radio" id="colorLuma" name="colorMode" value="luma">
+                        <label for="colorLuma">Luminance</label>
+                    </div>
+                    <div class="radio-item">
+                        <input type="radio" id="colorPerceptual" name="colorMode" value="perceptual">
+                        <label for="colorPerceptual">Perceptual</label>
+                    </div>
+                </div>
+
+                <div class="slider-container">
+                    <label class="slider-label">
+                        <span class="icon">Brightness:</span>
+                        <span class="value-display" id="brightnessValue">0</span>
+                    </label>
+                    <input type="range" id="brightness" min="-100" max="100" value="0">
+                </div>
+                <div class="slider-container">
+                    <label class="slider-label">
+                        <span class="icon">Contrast:</span>
+                        <span class="value-display" id="contrastValue">0</span>
+                    </label>
+                    <input type="range" id="contrast" min="-100" max="100" value="0">
+                </div>
+                <div class="slider-container">
+                    <label class="slider-label">
+                        <span class="icon">Saturation:</span>
+                        <span class="value-display" id="saturationValue">0</span>
+                    </label>
+                    <input type="range" id="saturation" min="-100" max="100" value="0">
+                </div>
+                <div class="slider-container">
+                    <label class="slider-label">
+                        <span class="icon">Gamma:</span>
+                        <span class="value-display" id="gammaValue">1.0</span>
+                    </label>
+                    <input type="range" id="gamma" min="0.1" max="3.0" value="1.0" step="0.1">
+                </div>
+
+                <button class="btn advanced-toggle" id="advancedColorToggle">
+                    Advanced Color Options
+                </button>
+                <div class="advanced-section collapsed" id="advancedColor">
+                    <div class="slider-container">
+                        <label class="slider-label">
+                            <span class="icon">Hue Shift:</span>
+                            <span class="value-display" id="hueShiftValue">0</span> degrees
+                        </label>
+                        <input type="range" id="hueShift" min="-180" max="180" value="0">
+                    </div>
+                    <div class="slider-container">
+                        <label class="slider-label">
+                            <span class="icon">Temperature:</span>
+                            <span class="value-display" id="temperatureValue">0</span> K
+                        </label>
+                        <input type="range" id="temperature" min="-5000" max="5000" value="0">
+                    </div>
+                    <div class="checkbox-group">
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="posterize">
+                            <label for="posterize">Posterize Colors</label>
+                        </div>
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="ditherNoise">
+                            <label for="ditherNoise">Add Noise</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="section">
+                <h3>Output Settings</h3>
+                <div class="slider-container">
+                    <label class="slider-label">
+                        <span class="icon">Preview Scale:</span>
+                        <span class="value-display" id="previewScaleValue">1</span>x
+                    </label>
+                    <input type="range" id="previewScale" min="1" max="4" value="1">
+                </div>
+                <div class="slider-container">
+                    <label class="slider-label">
+                        <span class="icon">Output Scale:</span>
+                        <span class="value-display" id="outputScaleValue">2</span>x
+                    </label>
+                    <input type="range" id="outputScale" min="1" max="8" value="2">
+                </div>
+                
+                <div class="checkbox-group">
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="pixelated" checked>
+                        <label for="pixelated">Pixelated Rendering</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="preserveAspect">
+                            <label for="preserveAspect">Preserve Aspect Ratio</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="section">
+                <button class="btn" id="applyBtn" style="width: 100%; margin-top: 20px; padding: 18px; font-size:1.2em;">
+                    APPLY FINAL DITHERING
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // DOM Elements
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const originalCanvas = document.getElementById('originalCanvas');
+        const ditheredCanvas = document.getElementById('ditheredCanvas');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const status = document.getElementById('status');
+        const applyBtn = document.getElementById('applyBtn');
+        const perfInfo = document.getElementById('perfInfo');
+        
+        // Controls
+        const livePreview = document.getElementById('livePreview');
+        const previewQuality = document.getElementById('previewQuality');
+        const algorithmRadios = document.querySelectorAll('input[name="algorithm"]');
+        const paletteRadios = document.querySelectorAll('input[name="palette"]');
+        const colorModeRadios = document.querySelectorAll('input[name="colorMode"]');
+        const bayerOptions = document.getElementById('bayerOptions');
+        const bayerSize = document.getElementById('bayerSize');
+        const bayerThreshold = document.getElementById('bayerThreshold');
+        const palettePreview = document.getElementById('palettePreview');
+        const customPalette = document.getElementById('customPalette');
+        const customColors = document.getElementById('customColors');
+        const previewScale = document.getElementById('previewScale');
+        const outputScale = document.getElementById('outputScale');
+        const pixelatedCheckbox = document.getElementById('pixelated');
+        const preserveAspect = document.getElementById('preserveAspect');
+        
+        // Advanced sections
+        const advancedDither = document.getElementById('advancedDither');
+        const advancedColor = document.getElementById('advancedColor');
+        const presetPalettes = document.getElementById('presetPalettes');
+        
+        // State
+        let originalImage = null;
+        let currentPalette = [];
+        let ditheredImageData = null;
+        let isProcessing = false;
+        let lastPreviewTime = 0;
+        let previewTimeout = null;
+        let originalImageData = null;
+        
+        // Predefined palettes
+        const palettes = {
+            gameboy: ['#0f380f', '#306230', '#8bac0f', '#9bbc0f'],
+            cga: ['#000000', '#00aaaa', '#aa00aa', '#aaaaaa']
+        };
+        
+        // Initialize
+        updatePalette('gameboy');
+        updateAllValueDisplays();
+        setupEventListeners();
+        
+        function setupEventListeners() {
+            // Upload
+            uploadArea.addEventListener('click', () => fileInput.click());
+            uploadArea.addEventListener('dragover', handleDragOver);
+            uploadArea.addEventListener('dragleave', handleDragLeave);
+            uploadArea.addEventListener('drop', handleDrop);
+            fileInput.addEventListener('change', handleFileSelect);
+            
+            // Algorithm
+            algorithmRadios.forEach(radio => {
+                radio.addEventListener('change', () => {
+                    bayerOptions.style.display = radio.value === 'bayer' ? 'block' : 'none';
+                    schedulePreview();
+                });
+            });
+            
+            // Palette
+            paletteRadios.forEach(radio => {
+                radio.addEventListener('change', () => {
+                    const value = radio.value;
+                    if (value === 'custom') {
+                        customPalette.style.display = 'block';
+                        updateCustomPalette();
+                    } else {
+                        customPalette.style.display = 'none';
+                        updatePalette(value);
+                    }
+                    schedulePreview();
+                });
+            });
+            
+            // Live preview
+            livePreview.addEventListener('change', () => {
+                if (livePreview.checked && originalImage) {
+                    schedulePreview();
+                }
+            });
+            
+            // All sliders and inputs that affect preview
+            const previewControls = [
+                previewQuality, bayerSize, bayerThreshold, previewScale,
+                document.getElementById('brightness'), document.getElementById('contrast'),
+                document.getElementById('saturation'), document.getElementById('gamma'),
+                document.getElementById('hueShift'), document.getElementById('temperature'),
+                document.getElementById('errorCarry'), document.getElementById('diffusionBias'),
+                document.getElementById('serpentine'), document.getElementById('randomStart'),
+                document.getElementById('posterize'), document.getElementById('ditherNoise'),
+                pixelatedCheckbox, preserveAspect
+            ];
+            
+            previewControls.forEach(control => {
+                control.addEventListener('input', schedulePreview);
+                control.addEventListener('change', schedulePreview);
+            });
+            
+            colorModeRadios.forEach(radio => {
+                radio.addEventListener('change', schedulePreview);
+            });
+            
+            // Advanced toggles
+            document.getElementById('advancedDitherToggle').addEventListener('click', () => {
+                advancedDither.classList.toggle('collapsed');
+            });
+            
+            document.getElementById('advancedColorToggle').addEventListener('click', () => {
+                advancedColor.classList.toggle('collapsed');
+            });
+            
+            document.getElementById('presetPalettesToggle').addEventListener('click', () => {
+                presetPalettes.classList.toggle('collapsed');
+            });
+            
+            // Custom palette
+            document.getElementById('addColor').addEventListener('click', addColorInput);
+            document.getElementById('clearPalette').addEventListener('click', () => {
+                customColors.innerHTML = '';
+                addColorInput();
+                updateCustomPalette();
+                schedulePreview();
+            });
+            
+            // Preset palettes
+            document.querySelectorAll('.preset-palette').forEach(preset => {
+                preset.addEventListener('click', () => {
+                    document.querySelectorAll('.preset-palette').forEach(p => p.classList.remove('active'));
+                    preset.classList.add('active');
+                    const colors = preset.getAttribute('data-colors').split(',');
+                    customColors.innerHTML = '';
+                    colors.forEach(color => {
+                        const input = document.createElement('input');
+                        input.type = 'color';
+                        input.value = color;
+                        input.addEventListener('change', () => {
+                            updateCustomPalette();
+                            schedulePreview();
+                        });
+                        customColors.appendChild(input);
+                    });
+                    updateCustomPalette();
+                    schedulePreview();
+                });
+            });
+            
+            // Final apply
+            applyBtn.addEventListener('click', applyFinalDithering);
+            downloadBtn.addEventListener('click', downloadImage);
+        }
+        
+        function schedulePreview() {
+            if (!livePreview.checked || !originalImage || isProcessing) return;
+            
+            const now = Date.now();
+            const delay = previewQuality.value < 50 ? 500 : previewQuality.value < 80 ? 300 : 100;
+            
+            if (now - lastPreviewTime > delay) {
+                lastPreviewTime = now;
+                applyDithering(true); // preview mode
+            } else if (!previewTimeout) {
+                previewTimeout = setTimeout(() => {
+                    previewTimeout = null;
+                    applyDithering(true);
+                }, delay);
+            }
+        }
+        
+        // Upload handlers
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            uploadArea.classList.add('dragover');
+        }
+        
+        function handleDragLeave(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            uploadArea.classList.remove('dragover');
+        }
+        
+        function handleDrop(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                loadImage(files[0]);
+            }
+        }
+        
+        function handleFileSelect(e) {
+            const file = e.target.files[0];
+            if (file) {
+                loadImage(file);
+            }
+        }
+        
+        function loadImage(file) {
+            if (!file.type.match('image.*')) {
+                showStatus('Please select an image file.', 'error');
+                return;
+            }
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    originalImage = img;
+                    storeOriginalImageData();
+                    drawOriginal();
+                    showStatus('Image loaded! Real-time preview active.', 'success');
+                    downloadBtn.style.display = 'none';
+                    if (livePreview.checked) {
+                        schedulePreview();
+                    }
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+        
+        function storeOriginalImageData() {
+            const canvas = document.createElement('canvas');
+            canvas.width = originalImage.width;
+            canvas.height = originalImage.height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(originalImage, 0, 0);
+            originalImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        }
+        
+        function drawOriginal() {
+            const ctx = originalCanvas.getContext('2d');
+            const scale = parseInt(previewScale.value);
+            
+            originalCanvas.width = originalImage.width * scale;
+            originalCanvas.height = originalImage.height * scale;
+            
+            ctx.imageSmoothingEnabled = !pixelatedCheckbox.checked;
+            ctx.drawImage(originalImage, 0, 0, originalCanvas.width, originalCanvas.height);
+        }
+        
+        function updatePalette(paletteName) {
+            currentPalette = palettes[paletteName].map(hexToRgb);
+            renderPalettePreview();
+        }
+        
+        function updateCustomPalette() {
+            const inputs = customColors.querySelectorAll('input[type="color"]');
+            currentPalette = Array.from(inputs).map(input => hexToRgb(input.value));
+            renderPalettePreview();
+        }
+        
+        function renderPalettePreview() {
+            palettePreview.innerHTML = '';
+            currentPalette.forEach((color, index) => {
+                const swatch = document.createElement('div');
+                swatch.className = 'palette-swatch removable';
+                swatch.style.backgroundColor = `rgb(${color.r}, ${color.g}, ${color.b})`;
+                swatch.title = `Click to remove`;
+                swatch.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (document.querySelector('input[name="palette"]:checked').value === 'custom') {
+                        swatch.remove();
+                        updateCustomPalette();
+                        schedulePreview();
+                    }
+                });
+                palettePreview.appendChild(swatch);
+            });
+        }
+        
+        function addColorInput() {
+            const input = document.createElement('input');
+            input.type = 'color';
+            input.value = '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');
+            input.addEventListener('change', () => {
+                updateCustomPalette();
+                schedulePreview();
+            });
+            customColors.appendChild(input);
+            updateCustomPalette();
+        }
+        
+        function updateAllValueDisplays() {
+            document.querySelectorAll('.value-display').forEach(display => {
+                const slider = display.closest('.slider-container')?.querySelector('input[type="range"]');
+                if (slider) {
+                    if (slider.id === 'bayerSize') {
+                        const labels = display.closest('.slider-label').querySelectorAll('.value-display');
+                        if (labels[0]) labels[0].textContent = slider.value;
+                        if (labels[1]) labels[1].textContent = slider.value;
+                    } else if (slider.id === 'gamma') {
+                        display.textContent = parseFloat(slider.value).toFixed(1);
+                    } else if (slider.id === 'temperature') {
+                        const val = parseInt(slider.value);
+                        display.textContent = val > 0 ? `+${val}` : val;
+                    } else {
+                        display.textContent = slider.value;
+                    }
+                }
+            });
+        }
+        
+        function applyDithering(isPreview = false) {
+            if (!originalImage || isProcessing) return;
+            
+            isProcessing = true;
+            const startTime = performance.now();
+            
+            const algorithm = document.querySelector('input[name="algorithm"]:checked').value;
+            const scale = isPreview ? parseInt(previewScale.value) : parseInt(outputScale.value);
+            const quality = isPreview ? parseInt(previewQuality.value) / 100 : 1;
+            
+            // Use original image data
+            const canvas = document.createElement('canvas');
+            const targetWidth = Math.round(originalImage.width * quality);
+            const targetHeight = Math.round(originalImage.height * quality);
+            canvas.width = targetWidth;
+            canvas.height = targetHeight;
+            const ctx = canvas.getContext('2d');
+            
+            // Apply color adjustments
+            ctx.drawImage(originalImage, 0, 0, targetWidth, targetHeight);
+            let imageData = ctx.getImageData(0, 0, targetWidth, targetHeight);
+            applyColorAdjustments(imageData.data, targetWidth, targetHeight);
+            ctx.putImageData(imageData, 0, 0);
+            
+            // Get final data for dithering
+            imageData = ctx.getImageData(0, 0, targetWidth, targetHeight);
+            let data = new Uint8ClampedArray(imageData.data);
+            
+            // Update palette
+            if (document.querySelector('input[name="palette"]:checked').value === 'custom') {
+                updateCustomPalette();
+            }
+            
+            // Apply dithering
+            if (algorithm === 'floyd') {
+                floydSteinbergDither(data, targetWidth, targetHeight, currentPalette, 
+                    document.getElementById('serpentine').checked,
+                    parseFloat(document.getElementById('errorCarry').value) / 100,
+                    parseFloat(document.getElementById('diffusionBias').value) / 100
+                );
+            } else if (algorithm === 'atkinson') {
+                atkinsonDither(data, targetWidth, targetHeight, currentPalette, 
+                    document.getElementById('serpentine').checked
+                );
+            } else if (algorithm === 'bayer') {
+                const matrixSize = parseInt(bayerSize.value);
+                const threshold = parseInt(bayerThreshold.value) / 100;
+                orderedDither(data, targetWidth, targetHeight, currentPalette, matrixSize, threshold);
+            }
+            
+            // Put dithered data back
+            const ditheredImageData = new ImageData(data, targetWidth, targetHeight);
+            ctx.putImageData(ditheredImageData, 0, 0);
+            
+            // Draw to display canvas
+            const displayScale = isPreview ? scale : 1;
+            ditheredCanvas.width = targetWidth * displayScale;
+            ditheredCanvas.height = targetHeight * displayScale;
+            const ditherCtx = ditheredCanvas.getContext('2d');
+            ditherCtx.imageSmoothingEnabled = !pixelatedCheckbox.checked;
+            ditherCtx.drawImage(canvas, 0, 0, ditheredCanvas.width, ditheredCanvas.height);
+            
+            // Store for download if final
+            if (!isPreview) {
+                const finalCanvas = document.createElement('canvas');
+                finalCanvas.width = originalImage.width * parseInt(outputScale.value);
+                finalCanvas.height = originalImage.height * parseInt(outputScale.value);
+                const finalCtx = finalCanvas.getContext('2d');
+                finalCtx.imageSmoothingEnabled = !pixelatedCheckbox.checked;
+                finalCtx.drawImage(canvas, 0, 0, originalImage.width, originalImage.height, 
+                    0, 0, finalCanvas.width, finalCanvas.height);
+                ditheredImageData = finalCanvas.toDataURL('image/png');
+                downloadBtn.style.display = 'block';
+            }
+            
+            // Update original canvas
+            if (isPreview) {
+                drawOriginal();
+            }
+            
+            const endTime = performance.now();
+            const duration = Math.round(endTime - startTime);
+            
+            if (isPreview) {
+                perfInfo.textContent = `Preview: ${duration}ms @ ${Math.round(quality*100)}% quality`;
+            } else {
+                showStatus(`Final dithering complete in ${duration}ms!`, 'success');
+            }
+            
+            isProcessing = false;
+            updateAllValueDisplays();
+        }
+        
+        function applyFinalDithering() {
+            if (!originalImage) {
+                showStatus('Please upload an image first.', 'error');
+                return;
+            }
+            
+            showStatus('Processing high-resolution output...', 'warning');
+            setTimeout(() => applyDithering(false), 100);
+        }
+        
+        function applyColorAdjustments(data, width, height) {
+            const brightness = parseInt(document.getElementById('brightness').value);
+            const contrast = parseInt(document.getElementById('contrast').value) / 100;
+            const saturation = parseInt(document.getElementById('saturation').value) / 100;
+            const gamma = parseFloat(document.getElementById('gamma').value);
+            const hueShift = parseInt(document.getElementById('hueShift').value);
+            const temperature = parseInt(document.getElementById('temperature').value);
+            const posterize = document.getElementById('posterize').checked;
+            const addNoise = document.getElementById('ditherNoise').checked;
+            const colorMode = document.querySelector('input[name="colorMode"]:checked').value;
+            
+            for (let i = 0; i < data.length; i += 4) {
+                let r = data[i] / 255;
+                let g = data[i + 1] / 255;
+                let b = data[i + 2] / 255;
+                
+                // Temperature adjustment
+                if (temperature !== 0) {
+                    const kelvin = 6500 + temperature;
+                    if (kelvin < 6600) {
+                        r = r * (kelvin / 6600);
+                        g = g * (kelvin / 6600);
+                    } else {
+                        r = r * Math.pow(kelvin / 6600, 0.5);
+                        b = b * Math.pow(6600 / kelvin, 0.5);
+                    }
+                }
+                
+                // Convert to HSL for hue/saturation
+                let h, s, l;
+                if (colorMode === 'hsl' || hueShift !== 0 || saturation !== 0) {
+                    const max = Math.max(r, g, b);
+                    const min = Math.min(r, g, b);
+                    l = (max + min) / 2;
+                    
+                    if (max === min) {
+                        h = s = 0;
+                    } else {
+                        const d = max - min;
+                        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+                        
+                        switch (max) {
+                            case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+                            case g: h = (b - r) / d + 2; break;
+                            case b: h = (r - g) / d + 4; break;
+                        }
+                        h /= 6;
+                    }
+                }
+                
+                // Hue shift
+                if (hueShift !== 0) {
+                    h = (h + hueShift / 360 + 1) % 1;
+                }
+                
+                // Saturation
+                if (saturation !== 0) {
+                    if (saturation > 0) {
+                        s = Math.min(1, s * (1 + saturation));
+                    } else {
+                        s = s * (1 + saturation);
+                    }
+                }
+                
+                // Convert back to RGB if needed
+                if (colorMode === 'hsl' || hueShift !== 0 || saturation !== 0) {
+                    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+                    const p = 2 * l - q;
+                    r = hueToRgb(p, q, h + 1/3);
+                    g = hueToRgb(p, q, h);
+                   
+                    b = hueToRgb(p, q, h - 1/3);
+                }
+                
+                // Brightness and contrast
+                r = (r - 0.5) * (1 + contrast) + 0.5 + brightness / 255;
+                g = (g - 0.5) * (1 + contrast) + 0.5 + brightness / 255;
+                b = (b - 0.5) * (1 + contrast) + 0.5 + brightness / 255;
+                
+                // Gamma correction
+                if (gamma !== 1) {
+                    r = Math.pow(Math.max(0, r), 1/gamma);
+                    g = Math.pow(Math.max(0, g), 1/gamma);
+                    b = Math.pow(Math.max(0, b), 1/gamma);
+                }
+                
+                // Posterize
+                if (posterize) {
+                    const levels = 8;
+                    r = Math.round(r * levels) / levels;
+                    g = Math.round(g * levels) / levels;
+                    b = Math.round(b * levels) / levels;
+                }
+                
+                // Add noise
+                if (addNoise) {
+                    const noise = (Math.random() - 0.5) * 0.1;
+                    r = Math.max(0, Math.min(1, r + noise));
+                    g = Math.max(0, Math.min(1, g + noise));
+                    b = Math.max(0, Math.min(1, b + noise));
+                }
+                
+                data[i] = Math.round(r * 255);
+                data[i + 1] = Math.round(g * 255);
+                data[i + 2] = Math.round(b * 255);
+            }
+        }
+        
+        function hueToRgb(p, q, t) {
+            if (t < 0) t += 1;
+            if (t > 1) t -= 1;
+            if (t < 1/6) return p + (q - p) * 6 * t;
+            if (t < 1/2) return q;
+            if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+            return p;
+        }
+        
+        function downloadImage() {
+            if (!ditheredImageData) return;
+            
+            const link = document.createElement('a');
+            link.download = `dithered-pro-${Date.now()}.png`;
+            link.href = ditheredImageData;
+            link.click();
+        }
+        
+        function showStatus(message, type) {
+            status.textContent = message;
+            status.className = `status ${type}`;
+            status.style.display = 'block';
+            setTimeout(() => {
+                status.style.display = 'none';
+            }, 4000);
+        }
+        
+        // Dithering Algorithms (enhanced)
+        
+        function floydSteinbergDither(data, width, height, palette, serpentine, errorCarry = 1, bias = 0) {
+            const paletteColors = palette.map(c => ({r: c.r, g: c.g, b: c.b}));
+            const errorCarryFactor = errorCarry;
+            
+            for (let y = 0; y < height; y++) {
+                const reverse = serpentine && (y % 2 === 1);
+                const start = reverse ? width - 1 : 0;
+                const end = reverse ? -1 : width;
+                const step = reverse ? -1 : 1;
+                
+                for (let x = start; x !== end; x += step) {
+                    const idx = (y * width + x) * 4;
+                    const oldR = data[idx];
+                    const oldG = data[idx + 1];
+                    const oldB = data[idx + 2];
+                    
+                    const newColor = findClosestPaletteColor(oldR, oldG, oldB, paletteColors);
+                    data[idx] = newColor.r;
+                    data[idx + 1] = newColor.g;
+                    data[idx + 2] = newColor.b;
+                    
+                    const errR = (oldR - newColor.r) * errorCarryFactor;
+                    const errG = (oldG - newColor.g) * errorCarryFactor;
+                    const errB = (oldB - newColor.b) * errorCarryFactor;
+                    
+                    // Floyd-Steinberg coefficients with bias
+                    const coeffs = [
+                        [1, 0, 7/16],   // right
+                        [-1, 1, 3/16 * (1 + bias)],  // bottom left
+                        [0, 1, 5/16],   // bottom
+                        [1, 1, 1/16 * (1 - bias)]    // bottom right
+                    ];
+                    
+                    coeffs.forEach(([dx, dy, factor]) => {
+                        const nx = x + (reverse ? -dx : dx);
+                        const ny = y + dy;
+                        if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                            const nIdx = (ny * width + nx) * 4;
+                            data[nIdx] += errR * factor;
+                            data[nIdx + 1] += errG * factor;
+                            data[nIdx + 2] += errB * factor;
+                        }
+                    });
+                }
+            }
+        }
+        
+        function atkinsonDither(data, width, height, palette, serpentine) {
+            const paletteColors = palette.map(c => ({r: c.r, g: c.g, b: c.b}));
+            
+            for (let y = 0; y < height; y++) {
+                const reverse = serpentine && (y % 2 === 1);
+                const start = reverse ? width - 1 : 0;
+                const end = reverse ? -1 : width;
+                const step = reverse ? -1 : 1;
+                
+                for (let x = start; x !== end; x += step) {
+                    const idx = (y * width + x) * 4;
+                    const oldR = data[idx];
+                    const oldG = data[idx + 1];
+                    const oldB = data[idx + 2];
+                    
+                    const newColor = findClosestPaletteColor(oldR, oldG, oldB, paletteColors);
+                    data[idx] = newColor.r;
+                    data[idx + 1] = newColor.g;
+                    data[idx + 2] = newColor.b;
+                    
+                    const errR = (oldR - newColor.r) / 8;
+                    const errG = (oldG - newColor.g) / 8;
+                    const errB = (oldB - newColor.b) / 8;
+                    
+                    const neighbors = [
+                        [1, 0], [2, 0],
+                        [-1, 1], [0, 1], [1, 1],
+                        [0, 2]
+                    ];
+                    
+                    neighbors.forEach(([dx, dy]) => {
+                        const nx = x + (reverse ? -dx : dx);
+                        const ny = y + dy;
+                        if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                            const nIdx = (ny * width + nx) * 4;
+                            data[nIdx] += errR;
+                            data[nIdx + 1] += errG;
+                            data[nIdx + 2] += errB;
+                        }
+                    });
+                }
+            }
+        }
+        
+        function orderedDither(data, width, height, palette, matrixSize, thresholdOffset = 0.5) {
+            const paletteColors = palette.map(c => ({r: c.r, g: c.g, b: c.b}));
+            const bayerMatrix = generateBayerMatrix(matrixSize);
+            
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    const idx = (y * width + x) * 4;
+                    const r = data[idx] / 255;
+                    const g = data[idx + 1] / 255;
+                    const b = data[idx + 2] / 255;
+                    
+                    const mx = x % matrixSize;
+                    const my = y % matrixSize;
+                    const threshold = (bayerMatrix[my][mx] / (matrixSize * matrixSize)) * (1 + thresholdOffset - 0.5);
+                    
+                    const newR = r > threshold ? 1 : 0;
+                    const newG = g > threshold ? 1 : 0;
+                    const newB = b > threshold ? 1 : 0;
+                    
+                    const targetR = newR * 255;
+                    const targetG = newG * 255;
+                    const targetB = newB * 255;
+                    
+                    const closest = findClosestPaletteColor(targetR, targetG, targetB, paletteColors);
+                    data[idx] = closest.r;
+                    data[idx + 1] = closest.g;
+                    data[idx + 2] = closest.b;
+                }
+            }
+        }
+        
+        function generateBayerMatrix(n) {
+            if (n === 2) {
+                return [
+                    [0, 2],
+                    [3, 1]
+                ];
+            }
+            
+            const half = n / 2;
+            const smaller = generateBayerMatrix(half);
+            const result = Array(n).fill().map(() => Array(n).fill(0));
+            
+            for (let y = 0; y < half; y++) {
+                for (let x = 0; x < half; x++) {
+                    result[y][x] = smaller[y][x] * 4;
+                    result[y][x + half] = smaller[y][x] * 4 + 2;
+                    result[y + half][x] = smaller[y][x] * 4 + 3;
+                    result[y + half][x + half] = smaller[y][x] * 4 + 1;
+                }
+            }
+            
+            return result;
+        }
+        
+        function findClosestPaletteColor(r, g, b, palette) {
+            let minDistance = Infinity;
+            let closest = palette[0];
+            const colorMode = document.querySelector('input[name="colorMode"]:checked').value;
+            
+            palette.forEach(color => {
+                let distance;
+                if (colorMode === 'luma') {
+                    const luma1 = r * 0.299 + g * 0.587 + b * 0.114;
+                    const luma2 = color.r * 0.299 + color.g * 0.587 + color.b * 0.114;
+                    distance = Math.abs(luma1 - luma2);
+                } else if (colorMode === 'perceptual') {
+                    // Simple perceptual distance
+                    const dr = (r - color.r) * 0.299;
+                    const dg = (g - color.g) * 0.587;
+                    const db = (b - color.b) * 0.114;
+                    distance = dr*dr + dg*dg + db*db;
+                } else {
+                    const dr = r - color.r;
+                    const dg = g - color.g;
+                    const db = b - color.b;
+                    distance = dr * dr + dg * dg + db * db;
+                }
+                
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    closest = color;
+                }
+            });
+            
+            return closest;
+        }
+        
+        function hexToRgb(hex) {
+            const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return result ? {
+                r: parseInt(result[1], 16),
+                g: parseInt(result[2], 16),
+                b: parseInt(result[3], 16)
+            } : { r: 0, g: 0, b: 0 };
+        }
+    </script>
+</body>
+</html>
