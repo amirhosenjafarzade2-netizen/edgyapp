@@ -1,0 +1,1183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GENART — Genetic Image Synthesizer</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Bebas+Neue&family=Syne:wght@400;700&display=swap');
+:root{
+  --bg:#06060e;--surf:#0c0c18;--surf2:#101020;--surf3:#14142a;
+  --brd:#181830;--brd2:#20203c;--brd3:#2a2a50;
+  --acc:#00ffaa;--acc-d:rgba(0,255,170,.11);--acc-g:rgba(0,255,170,.5);
+  --red:#ff3060;--red-d:rgba(255,48,96,.1);
+  --pur:#7c3aff;--pur-d:rgba(124,58,255,.12);
+  --yel:#ffd700;--yel-d:rgba(255,215,0,.1);
+  --txt:#dde0f2;--mu:#383858;--mu2:#585878;--mu3:#787898;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--txt);font-family:'Syne',sans-serif;display:flex;flex-direction:column;height:100vh}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(circle,#181830 1px,transparent 1px);background-size:24px 24px;opacity:.4;pointer-events:none;z-index:0}
+
+/* ── HEADER ── */
+header{position:relative;z-index:10;height:50px;display:flex;align-items:center;justify-content:space-between;padding:0 1.5rem;border-bottom:1px solid var(--brd);background:rgba(6,6,14,.98);flex-shrink:0;gap:1rem}
+.logo{font-family:'Bebas Neue',sans-serif;font-size:1.65rem;letter-spacing:.13em;color:var(--acc);text-shadow:0 0 18px var(--acc-g);white-space:nowrap}
+.logo sub{font-size:.5rem;letter-spacing:.22em;color:var(--mu3);vertical-align:middle;margin-left:.4rem}
+.hdr-center{flex:1;display:flex;justify-content:center}
+.hdr-right{display:flex;align-items:center;gap:.8rem;flex-shrink:0}
+.pill{display:flex;align-items:center;gap:.38rem;padding:.18rem .7rem;border:1px solid var(--brd2);border-radius:99px;font-family:'Space Mono',monospace;font-size:.54rem;color:var(--mu3);letter-spacing:.09em;white-space:nowrap}
+.dot{width:5px;height:5px;border-radius:50%;background:var(--mu);transition:all .3s}
+.dot.on{background:var(--acc);box-shadow:0 0 7px var(--acc);animation:blink 1s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+.hdr-stat{font-family:'Space Mono',monospace;font-size:.52rem;color:var(--mu2);padding:.18rem .6rem;border:1px solid var(--brd2);border-radius:3px;white-space:nowrap}
+.hdr-stat span{color:var(--acc);font-weight:700}
+
+/* ── LAYOUT ── */
+.layout{position:relative;z-index:1;display:grid;grid-template-columns:272px 1fr;flex:1;overflow:hidden;min-height:0}
+
+/* ── SIDEBAR ── */
+.sidebar{border-right:1px solid var(--brd);background:var(--surf);display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;min-height:0}
+.sidebar::-webkit-scrollbar{width:2px}
+.sidebar::-webkit-scrollbar-thumb{background:var(--brd2);border-radius:2px}
+.sec{border-bottom:1px solid var(--brd);flex-shrink:0}
+.sec-hdr{display:flex;align-items:center;gap:.38rem;width:100%;padding:.58rem 1rem;background:var(--surf2);border:none;font-family:'Space Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--acc);cursor:pointer;text-align:left}
+.arr{font-size:.38rem;transition:transform .2s;flex-shrink:0}
+.sec-hdr.shut .arr{transform:rotate(-90deg)}
+.sec-body{padding:.8rem 1rem}
+
+/* ── UPLOAD ── */
+#fileInput{position:absolute;left:-9999px;width:1px;height:1px;opacity:0}
+.upload-label{display:block;cursor:pointer}
+.upload-zone{border:1.5px dashed var(--brd2);border-radius:6px;padding:1.3rem .7rem;text-align:center;transition:all .2s;background:transparent}
+.upload-label:hover .upload-zone,.upload-zone.over{border-color:var(--acc);background:var(--acc-d)}
+.upload-icon{font-size:1.6rem;margin-bottom:.4rem;display:block}
+.upload-txt{font-family:'Space Mono',monospace;font-size:.57rem;color:var(--mu2);line-height:1.7}
+.upload-txt strong{color:var(--acc);font-weight:400}
+.preview-wrap{display:none;margin-top:.6rem;border:1px solid var(--brd2);border-radius:4px;overflow:hidden;background:var(--surf2)}
+.preview-wrap img{width:100%;max-height:110px;object-fit:contain;display:block}
+.prev-meta{padding:.3rem .55rem;display:flex;justify-content:space-between;align-items:center;font-family:'Space Mono',monospace;font-size:.5rem;color:var(--mu2)}
+.prev-meta button{background:none;border:none;color:var(--acc);cursor:pointer;font-family:inherit;font-size:inherit;text-decoration:underline;padding:0}
+
+/* Palette swatches */
+.palette{display:flex;gap:.3rem;padding:.4rem .55rem;border-top:1px solid var(--brd);flex-wrap:wrap}
+.swatch{width:16px;height:16px;border-radius:2px;border:1px solid rgba(255,255,255,.1);cursor:pointer;flex-shrink:0;transition:transform .15s}
+.swatch:hover{transform:scale(1.3)}
+
+/* ── STYLE GRID ── */
+.sty-grid{display:grid;grid-template-columns:1fr 1fr;gap:.3rem}
+.sty-btn{border:1px solid var(--brd);background:var(--surf2);color:var(--mu2);padding:.42rem .3rem;border-radius:4px;cursor:pointer;font-family:'Space Mono',monospace;font-size:.52rem;text-align:center;transition:all .14s;line-height:1.5;position:relative;overflow:hidden}
+.sty-btn::before{content:'';position:absolute;inset:0;background:var(--acc-d);opacity:0;transition:opacity .14s}
+.sty-btn:hover::before{opacity:1}
+.sty-btn:hover{border-color:var(--pur);color:var(--txt)}
+.sty-btn.on{border-color:var(--acc);color:var(--acc);background:var(--acc-d)}
+.sty-btn em{font-size:.85rem;display:block;margin-bottom:.08rem;font-style:normal}
+
+/* ── BLOCK SIZE ── */
+.ps-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:.28rem}
+.ps-btn{border:1px solid var(--brd);background:var(--surf2);color:var(--mu2);padding:.32rem 0;border-radius:3px;cursor:pointer;font-family:'Space Mono',monospace;font-size:.5rem;text-align:center;transition:all .14s}
+.ps-btn:hover{border-color:var(--pur);color:var(--txt)}
+.ps-btn.on{border-color:var(--red);color:var(--red);background:var(--red-d)}
+
+/* ── SLIDERS ── */
+.ctl{margin-bottom:.72rem}
+.ctl:last-child{margin-bottom:0}
+.ctl-lbl{display:flex;justify-content:space-between;margin-bottom:.35rem;font-family:'Space Mono',monospace;font-size:.51rem;color:var(--mu2)}
+.cv{color:var(--acc);font-weight:700}
+input[type=range]{width:100%;appearance:none;-webkit-appearance:none;height:2px;background:var(--brd2);border-radius:2px;outline:none;cursor:pointer}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;height:10px;border-radius:50%;background:var(--acc);box-shadow:0 0 5px var(--acc-g);cursor:pointer}
+input[type=range]::-moz-range-thumb{width:10px;height:10px;border:none;border-radius:50%;background:var(--acc);cursor:pointer}
+
+/* ── TOGGLE SWITCHES ── */
+.toggle-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:.55rem;font-family:'Space Mono',monospace;font-size:.51rem;color:var(--mu2)}
+.toggle-row:last-child{margin-bottom:0}
+.toggle{position:relative;width:28px;height:14px;flex-shrink:0}
+.toggle input{opacity:0;width:0;height:0;position:absolute}
+.toggle-track{position:absolute;inset:0;background:var(--brd2);border-radius:99px;transition:background .2s;cursor:pointer}
+.toggle input:checked+.toggle-track{background:var(--acc)}
+.toggle-thumb{position:absolute;top:2px;left:2px;width:10px;height:10px;border-radius:50%;background:#fff;transition:transform .2s;pointer-events:none}
+.toggle input:checked~.toggle-thumb{transform:translateX(14px)}
+
+/* ── BUTTONS ── */
+.btn-row{padding:.8rem 1rem;display:flex;gap:.38rem}
+.btn-evo{flex:1;padding:.68rem;background:linear-gradient(135deg,#00ffaa,#00cc77);color:#000;border:none;border-radius:4px;font-family:'Bebas Neue',sans-serif;font-size:.95rem;letter-spacing:.12em;cursor:pointer;transition:all .2s;box-shadow:0 0 12px rgba(0,255,170,.2)}
+.btn-evo:hover:not(:disabled){box-shadow:0 0 20px rgba(0,255,170,.4);transform:translateY(-1px)}
+.btn-evo:disabled{background:var(--surf2);color:var(--mu);box-shadow:none;cursor:not-allowed;transform:none}
+.btn-stp{padding:.68rem .8rem;background:transparent;color:var(--red);border:1px solid var(--red);border-radius:4px;font-family:'Bebas Neue',sans-serif;font-size:.95rem;letter-spacing:.12em;cursor:pointer;transition:all .2s;display:none}
+.btn-stp:hover{background:var(--red-d)}
+.btn-ico{padding:.68rem .55rem;background:transparent;color:var(--mu2);border:1px solid var(--brd2);border-radius:4px;cursor:pointer;font-size:.8rem;transition:all .2s;flex-shrink:0}
+.btn-ico:hover{color:var(--txt);border-color:var(--pur)}
+
+/* ── MAIN AREA ── */
+.main{display:flex;flex-direction:column;overflow:hidden;position:relative;min-height:0}
+.empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.8rem;pointer-events:none;z-index:2}
+.empty-ico{font-size:3.8rem;opacity:.07;filter:grayscale(1)}
+.empty-h{font-family:'Bebas Neue',sans-serif;font-size:1.55rem;letter-spacing:.15em;color:var(--mu);opacity:.3}
+.empty-p{font-family:'Space Mono',monospace;font-size:.55rem;color:var(--mu);opacity:.25;letter-spacing:.09em;text-align:center;line-height:1.9}
+#work{display:none;flex-direction:column;height:100%;overflow:hidden}
+
+/* Progress */
+.prog-bg{height:3px;background:var(--brd);flex-shrink:0;position:relative}
+.prog-fill{height:100%;background:linear-gradient(90deg,var(--pur),var(--acc));width:0%;transition:width .3s;position:relative}
+.prog-fill::after{content:'';position:absolute;right:-2px;top:-1px;width:5px;height:5px;border-radius:50%;background:var(--acc);box-shadow:0 0 8px var(--acc);opacity:0;transition:opacity .3s}
+.prog-fill.live::after{opacity:1}
+
+/* Stats bar */
+.stats{display:flex;border-bottom:1px solid var(--brd);flex-shrink:0;background:var(--surf)}
+.sc{flex:1;padding:.48rem .75rem;border-right:1px solid var(--brd);display:flex;flex-direction:column;gap:.05rem}
+.sc:last-child{border-right:none}
+.sl{font-family:'Space Mono',monospace;font-size:.44rem;letter-spacing:.16em;text-transform:uppercase;color:var(--mu)}
+.sv{font-family:'Space Mono',monospace;font-size:.75rem;color:var(--acc);font-weight:700}
+
+/* View tabs */
+.view-tabs{display:flex;border-bottom:1px solid var(--brd);flex-shrink:0;background:var(--surf2)}
+.vtab{flex:1;padding:.4rem;border:none;background:transparent;color:var(--mu2);font-family:'Space Mono',monospace;font-size:.5rem;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;transition:all .15s;border-bottom:2px solid transparent}
+.vtab.on{color:var(--acc);border-bottom-color:var(--acc);background:var(--acc-d)}
+.vtab:hover:not(.on){color:var(--txt);background:var(--surf3)}
+
+/* Canvas workspace */
+.cws{flex:1;display:flex;align-items:center;justify-content:center;gap:1.4rem;padding:1.2rem;overflow:auto;flex-wrap:wrap;min-height:0}
+.cc{display:flex;flex-direction:column;align-items:center;gap:.38rem}
+.ctit{font-family:'Space Mono',monospace;font-size:.5rem;letter-spacing:.17em;text-transform:uppercase;color:var(--mu2);display:flex;align-items:center;gap:.32rem}
+.bdg{background:var(--surf2);border:1px solid var(--brd2);padding:.05rem .32rem;border-radius:2px;font-size:.44rem;color:var(--mu2)}
+.cf{border:1px solid var(--brd2);border-radius:3px;overflow:hidden;background:#000;transition:box-shadow .3s}
+.cf canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;max-width:300px;max-height:300px}
+.cf.glow{box-shadow:0 0 0 1px var(--acc),0 0 16px rgba(0,255,170,.14)}
+#chartC{border:1px solid var(--brd2);border-radius:3px;display:block}
+
+/* Diff canvas overlay label */
+.diff-wrap{position:relative}
+.diff-lbl{position:absolute;top:4px;left:4px;font-family:'Space Mono',monospace;font-size:.45rem;background:rgba(0,0,0,.7);color:var(--acc);padding:.1rem .3rem;border-radius:2px;pointer-events:none}
+
+/* Bottom bar */
+.bot{border-top:1px solid var(--brd);padding:.48rem 1.1rem;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;background:var(--surf);gap:.8rem}
+.log-txt{font-family:'Space Mono',monospace;font-size:.54rem;color:var(--mu2);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.log-txt .hi{color:var(--acc)}
+.log-txt .er{color:var(--red)}
+.log-txt .wa{color:var(--yel)}
+.bot-btns{display:flex;gap:.4rem;flex-shrink:0}
+.btn-dl{display:inline-flex;align-items:center;gap:.28rem;padding:.33rem .72rem;background:transparent;color:var(--pur);border:1px solid var(--pur);border-radius:3px;font-family:'Space Mono',monospace;font-size:.52rem;cursor:pointer;text-decoration:none;transition:all .2s}
+.btn-dl:hover{background:var(--pur-d)}
+.btn-dl.gold{color:var(--yel);border-color:var(--yel)}
+.btn-dl.gold:hover{background:var(--yel-d)}
+
+/* Adaptive badge */
+.adapt-badge{display:inline-block;padding:.08rem .35rem;border-radius:2px;font-family:'Space Mono',monospace;font-size:.44rem;background:var(--pur-d);color:var(--pur);border:1px solid var(--pur);margin-left:.3rem}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">GENART<sub>// v2.0</sub></div>
+  <div class="hdr-center">
+    <div class="hdr-stat">GEN <span id="hGen">0</span> &nbsp;|&nbsp; SIM <span id="hSim">—</span> &nbsp;|&nbsp; BEST <span id="hBest">—</span></div>
+  </div>
+  <div class="hdr-right">
+    <div class="pill"><div class="dot" id="dot"></div><span id="statusTxt">IDLE</span></div>
+  </div>
+</header>
+
+<div class="layout">
+
+  <!-- ── SIDEBAR ── -->
+  <aside class="sidebar">
+
+    <!-- Upload -->
+    <div class="sec">
+      <button class="sec-hdr" onclick="toggleSec(this)"><span class="arr">▼</span> Source Image</button>
+      <div class="sec-body">
+        <input type="file" id="fileInput" accept="image/*">
+        <label for="fileInput" class="upload-label">
+          <div class="upload-zone" id="uploadZone">
+            <span class="upload-icon">🖼️</span>
+            <div class="upload-txt"><strong>Click to browse</strong><br>or drag & drop<br>PNG · JPG · GIF · WEBP</div>
+          </div>
+        </label>
+        <div class="preview-wrap" id="prevWrap">
+          <img id="prevImg" alt="">
+          <div class="prev-meta"><span id="prevMeta">—</span><button onclick="resetImg()">change ↺</button></div>
+          <div class="palette" id="palette"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Style -->
+    <div class="sec">
+      <button class="sec-hdr" onclick="toggleSec(this)"><span class="arr">▼</span> Aesthetic Style</button>
+      <div class="sec-body">
+        <div class="sty-grid">
+          <button class="sty-btn on" data-s="pixel"><em>🎮</em>PIXEL ART</button>
+          <button class="sty-btn" data-s="mosaic"><em>🏛️</em>MOSAIC</button>
+          <button class="sty-btn" data-s="dots"><em>🎨</em>POINTILLISM</button>
+          <button class="sty-btn" data-s="ascii"><em>💻</em>ASCII</button>
+          <button class="sty-btn" data-s="water"><em>🌊</em>WATERCOLOR</button>
+          <button class="sty-btn" data-s="glitch"><em>⚡</em>GLITCH</button>
+          <button class="sty-btn" data-s="half"><em>📰</em>HALFTONE</button>
+          <button class="sty-btn" data-s="neon"><em>🌈</em>NEON GLOW</button>
+          <button class="sty-btn" data-s="oil"><em>🖌️</em>OIL PAINT</button>
+          <button class="sty-btn" data-s="cross"><em>✂️</em>CROSS-STITCH</button>
+          <button class="sty-btn" data-s="diamond"><em>💎</em>DIAMONDS</button>
+          <button class="sty-btn" data-s="lego"><em>🧱</em>LEGO BRICKS</button>
+          <button class="sty-btn" data-s="thermal"><em>🌡️</em>THERMAL CAM</button>
+          <button class="sty-btn" data-s="stained"><em>🌹</em>STAINED GLASS</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Block size -->
+    <div class="sec">
+      <button class="sec-hdr" onclick="toggleSec(this)"><span class="arr">▼</span> Block Size</button>
+      <div class="sec-body">
+        <div class="ps-grid">
+          <button class="ps-btn" data-p="2">2px</button>
+          <button class="ps-btn" data-p="4">4px</button>
+          <button class="ps-btn on" data-p="8">8px</button>
+          <button class="ps-btn" data-p="12">12px</button>
+          <button class="ps-btn" data-p="20">20px</button>
+        </div>
+        <p style="margin-top:.45rem;font-family:'Space Mono',monospace;font-size:.48rem;color:var(--mu);line-height:1.7">Smaller = more detail, slower per generation</p>
+      </div>
+    </div>
+
+    <!-- GA params -->
+    <div class="sec">
+      <button class="sec-hdr" onclick="toggleSec(this)"><span class="arr">▼</span> Evolution Parameters</button>
+      <div class="sec-body">
+        <div class="ctl"><div class="ctl-lbl">Population <span class="cv" id="vPop">40</span></div>
+          <input type="range" id="rPop" min="10" max="150" value="40" oninput="document.getElementById('vPop').textContent=this.value"></div>
+        <div class="ctl"><div class="ctl-lbl">Mutation Rate <span class="cv" id="vMut">0.04</span></div>
+          <input type="range" id="rMut" min="1" max="40" value="4" oninput="document.getElementById('vMut').textContent=(this.value/100).toFixed(2)"></div>
+        <div class="ctl"><div class="ctl-lbl">Crossover Rate <span class="cv" id="vCro">0.75</span></div>
+          <input type="range" id="rCro" min="30" max="98" value="75" oninput="document.getElementById('vCro').textContent=(this.value/100).toFixed(2)"></div>
+        <div class="ctl"><div class="ctl-lbl">Max Generations <span class="cv" id="vMax">5000</span></div>
+          <input type="range" id="rMax" min="100" max="50000" value="5000" step="100" oninput="document.getElementById('vMax').textContent=Number(this.value).toLocaleString()"></div>
+        <div class="ctl"><div class="ctl-lbl">Speed (gen/frame) <span class="cv" id="vSpd">8</span></div>
+          <input type="range" id="rSpd" min="1" max="80" value="8" oninput="document.getElementById('vSpd').textContent=this.value"></div>
+        <div class="ctl"><div class="ctl-lbl">Elitism Count <span class="cv" id="vEli">3</span></div>
+          <input type="range" id="rEli" min="1" max="10" value="3" oninput="document.getElementById('vEli').textContent=this.value"></div>
+      </div>
+    </div>
+
+    <!-- Advanced -->
+    <div class="sec">
+      <button class="sec-hdr" onclick="toggleSec(this)"><span class="arr">▼</span> Advanced Options</button>
+      <div class="sec-body">
+        <div class="toggle-row">
+          <span>Adaptive Mutation <span class="adapt-badge">AUTO</span></span>
+          <label class="toggle"><input type="checkbox" id="tAdapt" checked><div class="toggle-track"></div><div class="toggle-thumb"></div></label>
+        </div>
+        <div class="toggle-row">
+          <span>Local Search Boost</span>
+          <label class="toggle"><input type="checkbox" id="tLocal"><div class="toggle-track"></div><div class="toggle-thumb"></div></label>
+        </div>
+        <div class="toggle-row">
+          <span>Color Palette Lock</span>
+          <label class="toggle"><input type="checkbox" id="tPalette"><div class="toggle-track"></div><div class="toggle-thumb"></div></label>
+        </div>
+        <div class="toggle-row">
+          <span>Show Diff View</span>
+          <label class="toggle"><input type="checkbox" id="tDiff" onchange="toggleDiff()"><div class="toggle-track"></div><div class="toggle-thumb"></div></label>
+        </div>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn-evo" id="btnEvo" disabled onclick="startGA()">EVOLVE</button>
+      <button class="btn-stp" id="btnStp" onclick="stopGA()">STOP</button>
+      <button class="btn-ico" onclick="resetAll()" title="Reset">↺</button>
+    </div>
+
+  </aside>
+
+  <!-- ── MAIN AREA ── -->
+  <main class="main">
+    <div class="empty" id="emptyState">
+      <div class="empty-ico">🧬</div>
+      <div class="empty-h">Upload an Image</div>
+      <div class="empty-p">Load a photo in the sidebar<br>then press EVOLVE</div>
+    </div>
+
+    <div id="work">
+      <div class="prog-bg"><div class="prog-fill" id="progFill"></div></div>
+
+      <div class="stats">
+        <div class="sc"><div class="sl">Generation</div><div class="sv" id="sGen">0</div></div>
+        <div class="sc"><div class="sl">Similarity</div><div class="sv" id="sSim">—</div></div>
+        <div class="sc"><div class="sl">Best Ever</div><div class="sv" id="sBest">—</div></div>
+        <div class="sc"><div class="sl">Δ Fitness</div><div class="sv" id="sDlt">—</div></div>
+        <div class="sc"><div class="sl">Mut. Rate</div><div class="sv" id="sMut">—</div></div>
+        <div class="sc"><div class="sl">Style</div><div class="sv" id="sStl">—</div></div>
+      </div>
+
+      <div class="view-tabs">
+        <button class="vtab on" data-v="side" onclick="setView(this)">◫ Side by Side</button>
+        <button class="vtab" data-v="diff" onclick="setView(this)">⊕ Diff</button>
+        <button class="vtab" data-v="evo" onclick="setView(this)">⬛ Evolved Only</button>
+        <button class="vtab" data-v="chart" onclick="setView(this)">📈 Chart</button>
+      </div>
+
+      <!-- Side by side -->
+      <div class="cws" id="vSide">
+        <div class="cc">
+          <div class="ctit">Original <span class="bdg" id="origBdg">—</span></div>
+          <div class="cf"><canvas id="origC"></canvas></div>
+        </div>
+        <div class="cc">
+          <div class="ctit">Evolved <span class="bdg" id="evoBdg">GEN 0</span></div>
+          <div class="cf" id="evoFrame"><canvas id="evoC"></canvas></div>
+        </div>
+        <div class="cc">
+          <div class="ctit">Fitness History</div>
+          <canvas id="chartC" width="240" height="185"></canvas>
+        </div>
+      </div>
+
+      <!-- Diff view -->
+      <div class="cws" id="vDiff" style="display:none">
+        <div class="cc">
+          <div class="ctit">Pixel Difference <span class="bdg">AMPLIFIED ×5</span></div>
+          <div class="cf diff-wrap">
+            <canvas id="diffC"></canvas>
+            <div class="diff-lbl">DARK = CLOSE · BRIGHT = ERROR</div>
+          </div>
+        </div>
+        <div class="cc">
+          <div class="ctit">Heatmap <span class="bdg">WORST BLOCKS</span></div>
+          <div class="cf"><canvas id="heatC"></canvas></div>
+        </div>
+      </div>
+
+      <!-- Evo only -->
+      <div class="cws" id="vEvo" style="display:none">
+        <div class="cc">
+          <div class="ctit">Evolved <span class="bdg" id="evoBdg2">GEN 0</span></div>
+          <div class="cf" style="border-color:var(--acc)"><canvas id="evoBigC"></canvas></div>
+        </div>
+      </div>
+
+      <!-- Chart only -->
+      <div class="cws" id="vChart" style="display:none">
+        <div class="cc" style="width:100%;align-items:stretch">
+          <div class="ctit">Fitness Evolution History</div>
+          <canvas id="chartBigC" width="100" height="100" style="width:100%;height:100%;border:1px solid var(--brd2);border-radius:3px"></canvas>
+        </div>
+      </div>
+
+      <div class="bot">
+        <div class="log-txt" id="logTxt">Ready — upload an image to begin</div>
+        <div class="bot-btns">
+          <a class="btn-dl" id="dlBtn" download="genart.png" href="#">⬇ PNG</a>
+          <a class="btn-dl gold" id="dlHiBtn" download="genart_hires.png" href="#" style="display:none">⬇ HI-RES</a>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<canvas id="srcC" style="position:absolute;left:-9999px;top:-9999px"></canvas>
+<canvas id="hiresC" style="position:absolute;left:-9999px;top:-9999px"></canvas>
+
+<script>
+'use strict';
+
+// ─── State ────────────────────────────────────────────────
+let imgData=null, style='pixel', ps=8;
+let running=false, raf=null;
+let pop=[],fits=[];
+let best=null, bestF=0, prevF=0, allTimeBest=0;
+let gen=0, targets=[], gW=0, gH=0, fitLog=[], maxGen=5000;
+let adaptMutRate=0.04; // current adaptive rate
+let extractedPalette=[]; // palette from image
+let currentView='side';
+
+const SLBL={pixel:'PIXEL',mosaic:'MOSAIC',dots:'DOTS',ascii:'ASCII',water:'WATER',
+  glitch:'GLITCH',half:'HTONE',neon:'NEON',oil:'OIL',cross:'XSTITCH',
+  diamond:'DIAMOND',lego:'LEGO',thermal:'THERMAL',stained:'STAINED'};
+
+// ─── UI helpers ───────────────────────────────────────────
+function log(html){document.getElementById('logTxt').innerHTML=html}
+function setRunning(on){
+  document.getElementById('dot').classList.toggle('on',on);
+  document.getElementById('statusTxt').textContent=on?'EVOLVING':'IDLE';
+  document.getElementById('btnEvo').style.display=on?'none':'';
+  document.getElementById('btnStp').style.display=on?'inline-block':'none';
+  document.getElementById('evoFrame').classList.toggle('glow',on);
+  document.getElementById('progFill').classList.toggle('live',on);
+}
+function toggleSec(btn){
+  btn.classList.toggle('shut');
+  btn.nextElementSibling.style.display=btn.classList.contains('shut')?'none':'';
+}
+function setView(tab){
+  document.querySelectorAll('.vtab').forEach(t=>t.classList.remove('on'));
+  tab.classList.add('on');
+  currentView=tab.dataset.v;
+  document.getElementById('vSide').style.display=currentView==='side'?'flex':'none';
+  document.getElementById('vDiff').style.display=currentView==='diff'?'flex':'none';
+  document.getElementById('vEvo').style.display=currentView==='evo'?'flex':'none';
+  document.getElementById('vChart').style.display=currentView==='chart'?'flex':'none';
+  if(best) refreshViews();
+}
+function toggleDiff(){
+  // sync diff toggle with tab
+  const on=document.getElementById('tDiff').checked;
+  if(on){ const t=document.querySelector('.vtab[data-v="diff"]'); setView(t); }
+  else { const t=document.querySelector('.vtab[data-v="side"]'); setView(t); }
+}
+
+// Style selector
+document.querySelector('.sty-grid').addEventListener('click',e=>{
+  const b=e.target.closest('.sty-btn'); if(!b) return;
+  document.querySelectorAll('.sty-btn').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on'); style=b.dataset.s;
+  document.getElementById('sStl').textContent=SLBL[style]||style.toUpperCase();
+  if(best) refreshViews();
+});
+
+// Block size
+document.querySelector('.ps-grid').addEventListener('click',e=>{
+  const b=e.target.closest('.ps-btn'); if(!b) return;
+  document.querySelectorAll('.ps-btn').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on'); ps=parseInt(b.dataset.p);
+});
+
+// ─── UPLOAD ───────────────────────────────────────────────
+const fi=document.getElementById('fileInput');
+const zone=document.getElementById('uploadZone');
+zone.addEventListener('dragover',e=>{e.preventDefault();e.stopPropagation();zone.classList.add('over');});
+zone.addEventListener('dragleave',()=>zone.classList.remove('over'));
+zone.addEventListener('drop',e=>{
+  e.preventDefault();e.stopPropagation();zone.classList.remove('over');
+  const f=e.dataTransfer.files[0];
+  if(f&&f.type.startsWith('image/')) readFile(f);
+  else log('<span class="er">Drop a valid image file</span>');
+});
+fi.addEventListener('change',()=>{ if(fi.files&&fi.files.length) readFile(fi.files[0]); });
+
+function readFile(file){
+  log('Loading…');
+  const r=new FileReader();
+  r.onload=e=>loadDataURL(e.target.result);
+  r.onerror=()=>log('<span class="er">File read error</span>');
+  r.readAsDataURL(file);
+}
+function loadDataURL(dataURL){
+  const img=new Image();
+  img.onload=()=>processImg(img);
+  img.onerror=()=>log('<span class="er">Decode error</span>');
+  img.src=dataURL;
+}
+function processImg(img){
+  const MAX=300;
+  const ow=img.naturalWidth||1, oh=img.naturalHeight||1;
+  const sc=Math.min(1,MAX/Math.max(ow,oh));
+  const w=Math.max(1,Math.round(ow*sc)), h=Math.max(1,Math.round(oh*sc));
+  const sc2=document.getElementById('srcC');
+  sc2.width=w; sc2.height=h;
+  const ctx=sc2.getContext('2d',{willReadFrequently:true});
+  ctx.clearRect(0,0,w,h); ctx.drawImage(img,0,0,w,h);
+  try{ imgData=ctx.getImageData(0,0,w,h); }
+  catch(e){ log('<span class="er">Cannot read pixels (CORS). Use a local file.</span>'); return; }
+  if(!imgData||!imgData.data.length){ log('<span class="er">Empty image data</span>'); return; }
+
+  // Extract palette
+  extractedPalette=extractPalette(imgData,12);
+  renderPalette();
+
+  // Preview
+  document.getElementById('prevImg').src=sc2.toDataURL();
+  document.getElementById('prevWrap').style.display='block';
+  document.getElementById('prevMeta').textContent=`${ow}×${oh} → ${w}×${h}px`;
+  document.getElementById('origBdg').textContent=`${w}×${h}`;
+
+  // Setup canvases
+  ['origC','evoC','diffC','heatC','evoBigC'].forEach(id=>{
+    const c=document.getElementById(id);
+    if(!c) return;
+    c.width=w; c.height=h;
+    const disp=Math.min(300,Math.max(w,h));
+    const dw=Math.round(w/Math.max(w,h)*disp), dh=Math.round(h/Math.max(w,h)*disp);
+    c.style.width=dw+'px'; c.style.height=dh+'px';
+  });
+  document.getElementById('origC').getContext('2d').putImageData(imgData,0,0);
+  const ec=document.getElementById('evoC').getContext('2d');
+  ec.fillStyle='#111'; ec.fillRect(0,0,w,h);
+
+  // Hi-res canvas (2×)
+  const hr=document.getElementById('hiresC');
+  hr.width=w*2; hr.height=h*2;
+
+  document.getElementById('emptyState').style.display='none';
+  document.getElementById('work').style.display='flex';
+  resetState();
+  document.getElementById('btnEvo').disabled=false;
+  document.getElementById('sStl').textContent=SLBL[style]||style.toUpperCase();
+  log('Image loaded — press <span class="hi">EVOLVE</span>');
+}
+
+function extractPalette(id,n=12){
+  const d=id.data, total=d.length/4, step=Math.max(1,Math.floor(total/500));
+  const buckets={};
+  for(let i=0;i<total;i+=step){
+    const r=d[i*4]>>4, g=d[i*4+1]>>4, b=d[i*4+2]>>4;
+    const key=(r<<8)|(g<<4)|b;
+    buckets[key]=(buckets[key]||0)+1;
+  }
+  return Object.entries(buckets).sort((a,b)=>b[1]-a[1]).slice(0,n).map(([k])=>{
+    const r=((k>>8)&0xf)*17, g=((k>>4)&0xf)*17, b=(k&0xf)*17;
+    return [r,g,b];
+  });
+}
+function renderPalette(){
+  const el=document.getElementById('palette');
+  el.innerHTML='';
+  extractedPalette.forEach(c=>{
+    const s=document.createElement('div');
+    s.className='swatch';
+    s.style.background=`rgb(${c[0]},${c[1]},${c[2]})`;
+    s.title=`rgb(${c[0]},${c[1]},${c[2]})`;
+    el.appendChild(s);
+  });
+}
+
+function resetImg(){
+  if(running) stopGA(); fi.value=''; imgData=null;
+  document.getElementById('prevWrap').style.display='none';
+  document.getElementById('emptyState').style.display='flex';
+  document.getElementById('work').style.display='none';
+  document.getElementById('btnEvo').disabled=true;
+  resetState();
+}
+function resetState(){
+  pop=[];fits=[];best=null;bestF=0;prevF=0;allTimeBest=0;
+  gen=0;targets=[];fitLog=[];gW=0;gH=0;adaptMutRate=0.04;
+  document.getElementById('progFill').style.width='0%';
+  document.getElementById('progFill').classList.remove('live');
+  ['sGen','sSim','sBest','sDlt','sMut'].forEach(id=>document.getElementById(id).textContent='—');
+  document.getElementById('sGen').textContent='0';
+  document.getElementById('evoBdg').textContent='GEN 0';
+  document.getElementById('hGen').textContent='0';
+  document.getElementById('hSim').textContent='—';
+  document.getElementById('hBest').textContent='—';
+  drawChart(document.getElementById('chartC'),240,185);
+}
+function resetAll(){
+  if(running) stopGA(); resetState();
+  if(imgData){
+    const ec=document.getElementById('evoC').getContext('2d');
+    ec.fillStyle='#111'; ec.fillRect(0,0,ec.canvas.width,ec.canvas.height);
+    document.getElementById('btnEvo').disabled=false;
+    log('Reset — press <span class="hi">EVOLVE</span>');
+  }
+}
+
+// ─── GENETIC ALGORITHM ────────────────────────────────────
+function startGA(){
+  if(!imgData){ log('<span class="er">No image loaded</span>'); return; }
+  if(running) return;
+  const popSz=parseInt(document.getElementById('rPop').value);
+  const mutR=parseFloat(document.getElementById('rMut').value)/100;
+  const croR=parseFloat(document.getElementById('rCro').value)/100;
+  const eli=parseInt(document.getElementById('rEli').value);
+  maxGen=parseInt(document.getElementById('rMax').value);
+  const spd=parseInt(document.getElementById('rSpd').value);
+  const useAdapt=document.getElementById('tAdapt').checked;
+  const useLocal=document.getElementById('tLocal').checked;
+  const usePalettelock=document.getElementById('tPalette').checked;
+  const w=imgData.width, h=imgData.height, bsz=ps;
+  gW=Math.ceil(w/bsz); gH=Math.ceil(h/bsz);
+  const len=gW*gH;
+  adaptMutRate=mutR;
+  targets=buildTargets(imgData,bsz,gW,gH);
+
+  const d=imgData.data, n=w*h;
+  // Palette-constrained init if enabled
+  const pal=usePalettelock&&extractedPalette.length?extractedPalette:null;
+  function samplePx(){
+    if(pal&&Math.random()<.5) return new Uint8Array(pal[(Math.random()*pal.length)|0]);
+    const i=(Math.floor(Math.random()*n))*4;
+    return new Uint8Array([d[i],d[i+1],d[i+2]]);
+  }
+  function rand3(){ return new Uint8Array([Math.random()*255|0,Math.random()*255|0,Math.random()*255|0]); }
+
+  pop=[];
+  for(let p=0;p<popSz;p++){
+    const ch=new Array(len);
+    // Seeding: half smart (from image pixels), half target blocks (best possible start)
+    for(let g=0;g<len;g++){
+      const r=Math.random();
+      if(r<.6) ch[g]=samplePx();
+      else if(r<.85) ch[g]=new Uint8Array(targets[g]);
+      else ch[g]=rand3();
+    }
+    pop.push(ch);
+  }
+  fits=pop.map(ch=>fit(ch,len));
+  const bi=argmax(fits);
+  bestF=fits[bi]; prevF=0; allTimeBest=bestF;
+  best=clone(pop[bi]); gen=0; fitLog=[bestF];
+  document.getElementById('sStl').textContent=SLBL[style]||style.toUpperCase();
+  document.getElementById('sGrd')&&(document.getElementById('sGrd').textContent=`${gW}×${gH}`);
+  running=true; setRunning(true);
+  log(`Evolving — pop ${popSz}, max ${maxGen.toLocaleString()} gen…`);
+
+  // Plateau detection
+  let noImproveCt=0;
+
+  function loop(){
+    if(!running) return;
+    for(let s=0;s<spd&&gen<maxGen;s++){
+      const next=[];
+      const sorted=pop.map((_,i)=>i).sort((a,b)=>fits[b]-fits[a]);
+      // Elitism
+      for(let e=0;e<eli&&e<sorted.length;e++) next.push(clone(pop[sorted[e]]));
+
+      while(next.length<popSz){
+        const p1=tour(pop,fits);
+        const p2=tour(pop,fits);
+        const ch=Math.random()<croR?cross(p1,p2,len):clone(p1);
+        mutate(ch,adaptMutRate,pal);
+        next.push(ch);
+      }
+
+      pop=next; fits=pop.map(ch=>fit(ch,len));
+      const bi2=argmax(fits);
+      if(fits[bi2]>bestF){
+        noImproveCt=0; prevF=bestF;
+        bestF=fits[bi2]; best=clone(pop[bi2]);
+        if(bestF>allTimeBest) allTimeBest=bestF;
+      } else {
+        noImproveCt++;
+      }
+      gen++;
+
+      // Adaptive mutation: ramp up if stuck
+      if(useAdapt){
+        if(noImproveCt>50){ adaptMutRate=Math.min(.25,adaptMutRate*1.08); }
+        else if(noImproveCt<5){ adaptMutRate=Math.max(mutR*.5,adaptMutRate*.97); }
+      }
+
+      // Local search: hill-climb best individual occasionally
+      if(useLocal&&gen%20===0&&best) localSearch(best,len,adaptMutRate*2);
+    }
+
+    fitLog.push(bestF);
+    refreshViews();
+    updateStats();
+
+    if(gen>=maxGen){ finish(); return; }
+    raf=requestAnimationFrame(loop);
+  }
+  raf=requestAnimationFrame(loop);
+}
+
+function stopGA(){
+  running=false; if(raf) cancelAnimationFrame(raf);
+  setRunning(false);
+  log(`Stopped gen ${gen.toLocaleString()} — <span class="hi">${(bestF*100).toFixed(2)}% similarity</span>`);
+}
+function finish(){
+  running=false; setRunning(false);
+  refreshViews(); updateStats();
+  buildHiRes();
+  log(`✓ Complete — ${gen.toLocaleString()} gen — <span class="hi">${(bestF*100).toFixed(2)}% similarity</span> — all-time best: ${(allTimeBest*100).toFixed(2)}%`);
+}
+function updateStats(){
+  document.getElementById('sGen').textContent=gen.toLocaleString();
+  document.getElementById('sSim').textContent=(bestF*100).toFixed(1)+'%';
+  document.getElementById('sBest').textContent=(allTimeBest*100).toFixed(2)+'%';
+  const d=bestF-prevF;
+  document.getElementById('sDlt').textContent=(d>=0?'+':'')+(d*100).toFixed(4)+'%';
+  document.getElementById('sMut').textContent=(adaptMutRate*100).toFixed(1)+'%';
+  const pct=Math.min(100,gen/maxGen*100);
+  document.getElementById('progFill').style.width=pct+'%';
+  document.getElementById('evoBdg').textContent='GEN '+gen.toLocaleString();
+  if(document.getElementById('evoBdg2')) document.getElementById('evoBdg2').textContent='GEN '+gen.toLocaleString();
+  document.getElementById('hGen').textContent=gen.toLocaleString();
+  document.getElementById('hSim').textContent=(bestF*100).toFixed(1)+'%';
+  document.getElementById('hBest').textContent=(allTimeBest*100).toFixed(2)+'%';
+}
+
+function refreshViews(){
+  if(!best||gW===0||gH===0) return;
+  const w=imgData.width, h=imgData.height;
+  const ctx=document.getElementById('evoC').getContext('2d');
+  RENDER[style](ctx,best,ps,w,h,gW,gH);
+  document.getElementById('dlBtn').href=document.getElementById('evoC').toDataURL();
+
+  if(currentView==='evo'){
+    const c2=document.getElementById('evoBigC').getContext('2d');
+    RENDER[style](c2,best,ps,w,h,gW,gH);
+  }
+  if(currentView==='diff') renderDiff();
+  if(currentView==='side') drawChart(document.getElementById('chartC'),240,185);
+  if(currentView==='chart'){
+    const bc=document.getElementById('chartBigC');
+    drawChart(bc,bc.offsetWidth||600,bc.offsetHeight||400);
+  }
+}
+
+function renderDiff(){
+  if(!best||!imgData) return;
+  const w=imgData.width, h=imgData.height;
+  // Build evolved pixels first
+  const evoCanv=document.getElementById('evoC');
+  const evoCtx=evoCanv.getContext('2d');
+  RENDER[style](evoCtx,best,ps,w,h,gW,gH);
+  const evoData=evoCtx.getImageData(0,0,w,h);
+  const srcD=imgData.data, eD=evoData.data;
+
+  // Diff canvas
+  const dc=document.getElementById('diffC');
+  const dctx=dc.getContext('2d');
+  const dImg=dctx.createImageData(w,h);
+  // Heat map canvas
+  const hc=document.getElementById('heatC');
+  const hctx=hc.getContext('2d');
+  const hImg=hctx.createImageData(w,h);
+  // Block error map
+  const blockErr=new Float32Array(gW*gH);
+
+  for(let i=0;i<w*h;i++){
+    const pi=i*4;
+    const dr=Math.abs(srcD[pi]-eD[pi]);
+    const dg=Math.abs(srcD[pi+1]-eD[pi+1]);
+    const db=Math.abs(srcD[pi+2]-eD[pi+2]);
+    const err=Math.min(255,(dr+dg+db)/3);
+    // Amplified diff (×5)
+    dImg.data[pi]=Math.min(255,err*5);
+    dImg.data[pi+1]=Math.min(255,err*5);
+    dImg.data[pi+2]=Math.min(255,err*5);
+    dImg.data[pi+3]=255;
+    // Block error accumulation
+    const px=i%w, py=Math.floor(i/w);
+    const gx=Math.min(gW-1,Math.floor(px/ps)), gy=Math.min(gH-1,Math.floor(py/ps));
+    blockErr[gy*gW+gx]+=err/255;
+  }
+  dctx.putImageData(dImg,0,0);
+
+  // Heatmap: normalize blockErr to color
+  const maxErr=Math.max(...blockErr)||1;
+  for(let i=0;i<w*h;i++){
+    const px=i%w, py=Math.floor(i/w);
+    const gx=Math.min(gW-1,Math.floor(px/ps)), gy=Math.min(gH-1,Math.floor(py/ps));
+    const t=blockErr[gy*gW+gx]/maxErr;
+    // Cold-hot: blue→cyan→green→yellow→red
+    const [r,g,b]=heatColor(t);
+    hImg.data[i*4]=r; hImg.data[i*4+1]=g; hImg.data[i*4+2]=b; hImg.data[i*4+3]=255;
+  }
+  hctx.putImageData(hImg,0,0);
+}
+
+function heatColor(t){
+  // 0=blue, .25=cyan, .5=green, .75=yellow, 1=red
+  if(t<.25){ const s=t/.25; return [0, Math.round(s*255), 255]; }
+  if(t<.5){ const s=(t-.25)/.25; return [0, 255, Math.round((1-s)*255)]; }
+  if(t<.75){ const s=(t-.5)/.25; return [Math.round(s*255), 255, 0]; }
+  const s=(t-.75)/.25; return [255, Math.round((1-s)*255), 0];
+}
+
+function buildHiRes(){
+  if(!best) return;
+  const scale=2;
+  const w=imgData.width*scale, h=imgData.height*scale;
+  const hr=document.getElementById('hiresC');
+  hr.width=w; hr.height=h;
+  const ctx=hr.getContext('2d');
+  RENDER[style](ctx,best,ps*scale,w,h,gW,gH);
+  document.getElementById('dlHiBtn').href=hr.toDataURL();
+  document.getElementById('dlHiBtn').style.display='inline-flex';
+}
+
+// ─── GA CORE ─────────────────────────────────────────────
+function fit(ch,len){
+  let s=0;
+  for(let i=0;i<len;i++){
+    const t=targets[i],c=ch[i];
+    const dr=t[0]-c[0],dg=t[1]-c[1],db=t[2]-c[2];
+    s+=dr*dr+dg*dg+db*db;
+  }
+  return 1-s/(len*3*255*255);
+}
+
+function buildTargets(id,bsz,gw,gh){
+  const W=id.width,d=id.data,out=[];
+  for(let gy=0;gy<gh;gy++) for(let gx=0;gx<gw;gx++){
+    let r=0,g=0,b=0,n=0;
+    for(let dy=0;dy<bsz;dy++) for(let dx=0;dx<bsz;dx++){
+      const px=gx*bsz+dx,py=gy*bsz+dy;
+      if(px<id.width&&py<id.height){const i=(py*W+px)*4;r+=d[i];g+=d[i+1];b+=d[i+2];n++;}
+    }
+    out.push(new Uint8Array([n?r/n:0,n?g/n:0,n?b/n:0]));
+  }
+  return out;
+}
+
+function argmax(a){let b=0;for(let i=1;i<a.length;i++)if(a[i]>a[b])b=i;return b;}
+function clone(ch){return ch.map(c=>new Uint8Array(c));}
+
+function tour(pop,fits,k=4){
+  let b=(Math.random()*pop.length)|0;
+  for(let i=1;i<k;i++){const c=(Math.random()*pop.length)|0;if(fits[c]>fits[b])b=c;}
+  return pop[b];
+}
+function cross(p1,p2,len){
+  // Two-point crossover for more diversity
+  const ch=new Array(len);
+  const pt1=Math.floor(Math.random()*len), pt2=Math.floor(Math.random()*len);
+  const a=Math.min(pt1,pt2), b2=Math.max(pt1,pt2);
+  for(let i=0;i<len;i++) ch[i]=new Uint8Array((i<a||i>b2)?p1[i]:p2[i]);
+  return ch;
+}
+function mutate(ch,rate,pal){
+  for(let i=0;i<ch.length;i++){
+    if(Math.random()<rate){
+      if(pal&&Math.random()<.3){
+        // Snap to palette color
+        ch[i]=new Uint8Array(pal[(Math.random()*pal.length)|0]);
+      } else {
+        const c=ch[i], idx=(Math.random()*3)|0;
+        // Gaussian-like mutation (sum of two uniforms)
+        const delta=((Math.random()-.5)+(Math.random()-.5))*60;
+        c[idx]=Math.max(0,Math.min(255,c[idx]+delta|0));
+      }
+    }
+  }
+}
+function localSearch(ch,len,rate){
+  // Greedy hill-climb: try mutating single genes, keep improvements
+  const curFit=fit(ch,len);
+  let improved=false;
+  for(let i=0;i<len;i++){
+    if(Math.random()>rate*2) continue;
+    const orig=new Uint8Array(ch[i]);
+    const idx=(Math.random()*3)|0;
+    ch[i][idx]=Math.max(0,Math.min(255,ch[i][idx]+((Math.random()-.5)*40)|0));
+    if(fit(ch,len)<curFit) ch[i]=orig; // revert if worse
+    else improved=true;
+  }
+  return improved;
+}
+
+// ─── RENDERERS ───────────────────────────────────────────
+function rgb(c){return `rgb(${c[0]},${c[1]},${c[2]})`;}
+function cl(v){return Math.max(0,Math.min(255,v|0));}
+
+const RENDER={
+
+  pixel(ctx,ch,ps,w,h,gw,gh){
+    ctx.clearRect(0,0,w,h);
+    let i=0;
+    for(let gy=0;gy<gh;gy++) for(let gx=0;gx<gw;gx++){
+      ctx.fillStyle=rgb(ch[i++]);
+      ctx.fillRect(gx*ps,gy*ps,ps,ps);
+    }
+  },
+
+  mosaic(ctx,ch,ps,w,h,gw,gh){
+    ctx.fillStyle='#14100c'; ctx.fillRect(0,0,w,h);
+    const gap=Math.max(1,Math.round(ps*.13));
+    let i=0;
+    for(let gy=0;gy<gh;gy++) for(let gx=0;gx<gw;gx++){
+      const c=ch[i++], v=((gx*7+gy*13)%40)-20;
+      // Slight highlight on top edge
+      ctx.fillStyle=`rgb(${cl(c[0]+v+10)},${cl(c[1]+v+10)},${cl(c[2]+v+10)})`;
+      ctx.fillRect(gx*ps+gap,gy*ps+gap,ps-gap*2,1);
+      ctx.fillStyle=`rgb(${cl(c[0]+v)},${cl(c[1]+v)},${cl(c[2]+v)})`;
+      ctx.fillRect(gx*ps+gap,gy*ps+gap+1,ps-gap*2,ps-gap*2-1);
+    }
+  },
+
+  dots(ctx,ch,ps,w,h,gw,gh){
+    ctx.fillStyle='#f0ede5'; ctx.fillRect(0,0,w,h);
+    const r=ps*.54; let i=0;
+    for(let gy=0;gy<gh;gy++) for(let gx=0;gx<gw;gx++){
+      const c=ch[i++], seed=gx*19+gy*7;
+      const jx=((seed*1013)%200-100)/100*ps*.38;
+      const jy=((seed*1021)%200-100)/100*ps*.38;
+      ctx.beginPath();
+      ctx.arc(gx*ps+ps/2+jx,gy*ps+ps/2+jy,r,0,Math.PI*2);
+      ctx.fillStyle=`rgba(${c[0]},${c[1]},${c[2]},.84)`;
+      ctx.fill();
+    }
+  },
+
+  ascii(ctx,ch,ps,w,h,gw,gh){
+    const chars='@#MB&%8$?*o+=;:,.· '.split('');
+    ctx.fillStyle='#03030a'; ctx.fillRect(0,0,w,h);
+    const fs=Math.max(5,ps-1);
+    ctx.font=`bold ${fs}px "Courier New",monospace`;
+    ctx.textBaseline='top'; let i=0;
+    for(let gy=0;gy<gh;gy++) for(let gx=0;gx<gw;gx++){
+      const c=ch[i++], lum=(c[0]*.299+c[1]*.587+c[2]*.114)/255;
+      const ci=Math.min(chars.length-1,Math.floor((1-lum)*(chars.length-1)));
+      ctx.fillStyle=rgb(c);
+      ctx.fillText(chars[ci],gx*ps,gy*ps);
+    }
+  },
+
+  water(ctx,ch,ps,w,h,gw,gh){
+    ctx.fillStyle='#f3f0e9'; ctx.fillRect(0,0,w,h);
+    let i=0;
+    for(let gy=0;gy<gh;gy++) for(let gx=0;gx<gw;gx++){
+      const c=ch[i++], cx=gx*ps+ps/2, cy=gy*ps+ps/2;
+      for(let p=0;p<2;p++){
+        const seed=gx*31+gy*17+p*97;
+        const jx=((seed*1013)%200-100)/100*ps*.27;
+        const jy=((seed*1021)%200-100)/100*ps*.27;
+        const rx=ps*(.44+(seed%7)*.02), ry=ps*(.37+(seed%5)*.025);
+        const gr=ctx.createRadialGradient(cx+jx,cy+jy,0,cx+jx,cy+jy,Math.max(rx,ry));
+        gr.addColorStop(0,`rgba(${c[0]},${c[1]},${c[2]},.26)`);
+        gr.addColorStop(1,`rgba(${c[0]},${c[1]},${c[2]},0)`);
+        ctx.fillStyle=gr; ctx.beginPath();
+        ctx.ellipse(cx+jx,cy+jy,rx,ry,(seed%314)/100,0,Math.PI*2); ctx.fill();
+      }
+    }
+  },
+
+  glitch(ctx,ch,ps,w,h,gw,gh){
+    ctx.fillStyle='#000'; ctx.fillRect(0,0,w,h); let i=0;
+    for(let gy=0;gy<gh;gy++){
+      const rs=((gy*137)%100<4), rsh=rs?(((gy*53)%20)-10)*(ps*.4):0;
+      for(let gx=0;gx<gw;gx++){
+        const c=ch[i++], s=(gx*31+gy*17)%100;
+        if(s<7){
+          ctx.fillStyle=`rgba(${c[0]},0,0,.9)`; ctx.fillRect(gx*ps+rsh-2,gy*ps,ps,ps);
+          ctx.fillStyle=`rgba(0,${c[1]},0,.9)`; ctx.fillRect(gx*ps+rsh,gy*ps,ps,ps);
+          ctx.fillStyle=`rgba(0,0,${c[2]},.9)`; ctx.fillRect(gx*ps+rsh+2,gy*ps,ps,ps);
+        } else { ctx.fillStyle=rgb(c); ctx.fillRect(gx*ps+rsh,gy*ps,ps,ps); }
+      }
+    }
+    ctx.fillStyle='rgba(0,0,0,.16)';
+    for(let y=0;y<h;y+=3) ctx.fillRect(0,y,w,1);
+  },
+
+  half(ctx,ch,ps,w,h,gw,gh){
+    ctx.fillStyle='#fff'; ctx.fillRect(0,0,w,h); let i=0;
+    for(let gy=0;gy<gh;gy++) for(let gx=0;gx<gw;gx++){
+      const c=ch[i++], lum=(c[0]*.299+c[1]*.587+c[2]*.114)/255;
+      const r=(1-lum)*ps*.52; if(r<.4) continue;
+      ctx.beginPath(); ctx.arc(gx*ps+ps/2,gy*ps+ps/2,r,0,Math.PI*2);
+      ctx.fillStyle=rgb(c); ctx.fill();
+    }
+  },
+
+  neon(ctx,ch,ps,w,h,gw,gh){
+    ctx.fillStyle='#000'; ctx.fillRect(0,0,w,h);
+    const cr=ps*.4; let i=0;
+    for(let gy=0;gy<gh;gy++) for(let gx=0;gx<gw;gx++){
+      const c=ch[i++], cx=gx*ps+ps/2, cy=gy*ps+ps/2;
+      ctx.beginPath(); ctx.arc(cx,cy,cr*2.4,0,Math.PI*2);
+      ctx.fillStyle=`rgba(${c[0]},${c[1]},${c[2]},.06)`; ctx.fill();
+      ctx.beginPath(); ctx.arc(cx,cy,cr*1.5,0,Math.PI*2);
+      ctx.fillStyle=`rgba(${c[0]},${c[1]},${c[2]},.14)`; ctx.fill();
+      ctx.beginPath(); ctx.arc(cx,cy,cr,0,Math.PI*2);
+      ctx.fillStyle=rgb(c); ctx.fill();
+      ctx.beginPath(); ctx.arc(cx-cr*.22,cy-cr*.22,cr*.28,0,Math.PI*2);
+      ctx.fillStyle='rgba(255,255,255,.5)'; ctx.fill();
+    }
+  },
+
+  oil(ctx,ch,ps,w,h,gw,gh){
+    // Oil painting: overlapping elliptical brush strokes with texture
+    ctx.fillStyle='#1a1008'; ctx.fillRect(0,0,w,h);
+    let i=0;
+    for(let gy=0;gy<gh;gy++) for(let gx=0;gx<gw;gx++){
+      const c=ch[i++];
+      const seed=gx*41+gy*23;
+      const cx=gx*ps+ps/2, cy=gy*ps+ps/2;
+      const angle=(seed%628)/100;
+      const rx=ps*(.55+(seed%5)*.04), ry=ps*(.3+(seed%3)*.05);
+      // Base stroke
+      ctx.save(); ctx.translate(cx,cy); ctx.rotate(angle);
+      ctx.beginPath(); ctx.ellipse(0,0,rx,ry,0,0,Math.PI*2);
+      ctx.fillStyle=rgb(c); ctx.fill();
+      // Highlight stroke
+      ctx.beginPath(); ctx.ellipse(-rx*.15,-ry*.2,rx*.5,ry*.4,0,0,Math.PI*2);
+      ctx.fillStyle=`rgba(${cl(c[0]+40)},${cl(c[1]+40)},${cl(c[2]+40)},.35)`; ctx.fill();
+      ctx.restore();
+    }
+  },
+
+  cross(ctx,ch,ps,w,h,gw,gh){
+    // Cross-stitch: X marks on linen background
+    ctx.fillStyle='#f5ede0'; ctx.fillRect(0,0,w,h);
+    // Grid lines (fabric texture)
+    ctx.strokeStyle='rgba(180,160,130,.25)'; ctx.lineWidth=.5;
+    for(let x=0;x<=w;x+=ps){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,h); ctx.stroke(); }
+    for(let y=0;y<=h;y+=ps){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(w,y); ctx.stroke(); }
+    let i=0;
+    for(let gy=0;gy<gh;gy++) for(let gx=0;gx<gw;gx++){
+      const c=ch[i++];
+      const lum=(c[0]*.299+c[1]*.587+c[2]*.114)/255;
+      if(lum>.93) continue; // skip near-white = empty stitch
+      const x=gx*ps, y=gy*ps, m=ps*.15;
+      ctx.strokeStyle=rgb(c); ctx.lineWidth=Math.max(1,ps*.18);
+      ctx.lineCap='round';
+      // \ stroke
+      ctx.beginPath(); ctx.moveTo(x+m,y+m); ctx.lineTo(x+ps-m,y+ps-m); ctx.stroke();
+      // / stroke
+      ctx.beginPath(); ctx.moveTo(x+ps-m,y+m); ctx.lineTo(x+m,y+ps-m); ctx.stroke();
+    }
+  },
+
+  diamond(ctx,ch,ps,w,h,gw,gh){
+    // Faceted diamond/gem effect
+    ctx.fillStyle='#050510'; ctx.fillRect(0,0,w,h);
+    const half=ps/2; let i=0;
+    for(let gy=0;gy<gh;gy++) for(let gx=0;gx<gw;gx++){
+      const c=ch[i++];
+      const x=gx*ps, y=gy*ps;
+      const cx=x+half, cy=y+half;
+      // Main diamond facets
+      ctx.beginPath(); ctx.moveTo(cx,y); ctx.lineTo(x+ps,cy); ctx.lineTo(cx,y+ps); ctx.lineTo(x,cy); ctx.closePath();
+      ctx.fillStyle=rgb(c); ctx.fill();
+      // Top-left highlight
+      ctx.beginPath(); ctx.moveTo(cx,y); ctx.lineTo(x,cy); ctx.lineTo(cx,cy); ctx.closePath();
+      ctx.fillStyle=`rgba(${cl(c[0]+70)},${cl(c[1]+70)},${cl(c[2]+70)},.6)`; ctx.fill();
+      // Bottom-right shadow
+      ctx.beginPath(); ctx.moveTo(cx,y+ps); ctx.lineTo(x+ps,cy); ctx.lineTo(cx,cy); ctx.closePath();
+      ctx.fillStyle=`rgba(${cl(c[0]-60)},${cl(c[1]-60)},${cl(c[2]-60)},.5)`; ctx.fill();
+      // Tiny specular
+      ctx.beginPath(); ctx.arc(cx-half*.25,cy-half*.25,Math.max(1,ps*.08),0,Math.PI*2);
+      ctx.fillStyle='rgba(255,255,255,.7)'; ctx.fill();
+    }
+  },
+
+  lego(ctx,ch,ps,w,h,gw,gh){
+    // LEGO bricks with stud on top
+    ctx.fillStyle='#222'; ctx.fillRect(0,0,w,h);
+    const gap=Math.max(1,Math.round(ps*.08));
+    const studR=Math.max(1,ps*.22);
+    let i=0;
+    for(let gy=0;gy<gh;gy++) for(let gx=0;gx<gw;gx++){
+      const c=ch[i++];
+      const x=gx*ps+gap, y=gy*ps+gap, sz=ps-gap*2;
+      // Brick body
+      ctx.fillStyle=rgb(c); ctx.fillRect(x,y,sz,sz);
+      // Top highlight
+      ctx.fillStyle=`rgba(255,255,255,.25)`; ctx.fillRect(x,y,sz,Math.max(1,sz*.18));
+      // Left highlight
+      ctx.fillStyle=`rgba(255,255,255,.12)`; ctx.fillRect(x,y,Math.max(1,sz*.1),sz);
+      // Bottom shadow
+      ctx.fillStyle=`rgba(0,0,0,.3)`; ctx.fillRect(x,y+sz-Math.max(1,sz*.15),sz,Math.max(1,sz*.15));
+      // Stud
+      const scx=x+sz/2, scy=y+sz/2;
+      ctx.beginPath(); ctx.arc(scx,scy,studR,0,Math.PI*2);
+      ctx.fillStyle=`rgb(${cl(c[0]-20)},${cl(c[1]-20)},${cl(c[2]-20)})`; ctx.fill();
+      ctx.beginPath(); ctx.arc(scx-studR*.2,scy-studR*.2,studR*.35,0,Math.PI*2);
+      ctx.fillStyle='rgba(255,255,255,.4)'; ctx.fill();
+    }
+  },
+
+  thermal(ctx,ch,ps,w,h,gw,gh){
+    // Thermal camera: map luminance to temperature-style color
+    ctx.fillStyle='#000'; ctx.fillRect(0,0,w,h);
+    let i=0;
+    for(let gy=0;gy<gh;gy++) for(let gx=0;gx<gw;gx++){
+      const c=ch[i++];
+      const lum=(c[0]*.299+c[1]*.587+c[2]*.114)/255;
+      // Thermal palette: black→purple→blue→cyan→green→yellow→red→white
+      let r,g,b;
+      if(lum<.125){const t=lum/.125;r=Math.round(t*60);g=0;b=Math.round(t*80);}
+      else if(lum<.25){const t=(lum-.125)/.125;r=Math.round(60+t*100);g=0;b=Math.round(80+t*175);}
+      else if(lum<.375){const t=(lum-.25)/.125;r=Math.round(160-t*160);g=Math.round(t*200);b=255;}
+      else if(lum<.5){const t=(lum-.375)/.125;r=0;g=Math.round(200+t*55);b=Math.round(255-t*255);}
+      else if(lum<.625){const t=(lum-.5)/.125;r=Math.round(t*255);g=255;b=0;}
+      else if(lum<.75){const t=(lum-.625)/.125;r=255;g=Math.round(255-t*100);b=0;}
+      else if(lum<.875){const t=(lum-.75)/.125;r=255;g=Math.round(155-t*155);b=0;}
+      else{const t=(lum-.875)/.125;r=255;g=Math.round(t*255);b=Math.round(t*255);}
+      ctx.fillStyle=`rgb(${r},${g},${b})`;
+      ctx.fillRect(gx*ps,gy*ps,ps,ps);
+    }
+  },
+
+  stained(ctx,ch,ps,w,h,gw,gh){
+    // Stained glass: colored cells with dark lead outline, glow effect
+    ctx.fillStyle='#0a0608'; ctx.fillRect(0,0,w,h);
+    const lead=Math.max(1,Math.round(ps*.12));
+    let i=0;
+    for(let gy=0;gy<gh;gy++) for(let gx=0;gx<gw;gx++){
+      const c=ch[i++];
+      const x=gx*ps+lead, y=gy*ps+lead, sz=ps-lead*2;
+      if(sz<=0) continue;
+      // Glass cell (slightly irregular: clip to inset rect)
+      // Saturate color for stained glass effect
+      const [h2,s2,l2]=rgbToHsl(c[0],c[1],c[2]);
+      const sat=Math.min(1,s2*1.6), lit=Math.min(.85,l2*1.15);
+      const [r2,g2,b2]=hslToRgb(h2,sat,lit);
+      // Inner glow gradient
+      const grd=ctx.createRadialGradient(x+sz*.4,y+sz*.35,0,x+sz/2,y+sz/2,sz*.8);
+      grd.addColorStop(0,`rgba(${cl(r2+50)},${cl(g2+50)},${cl(b2+50)},1)`);
+      grd.addColorStop(.7,`rgb(${r2},${g2},${b2})`);
+      grd.addColorStop(1,`rgb(${cl(r2-30)},${cl(g2-30)},${cl(b2-30)})`);
+      ctx.fillStyle=grd;
+      ctx.fillRect(x,y,sz,sz);
+    }
+  }
+};
+
+// HSL helpers for stained glass
+function rgbToHsl(r,g,b){
+  r/=255;g/=255;b/=255;
+  const max=Math.max(r,g,b),min=Math.min(r,g,b);
+  let h,s,l=(max+min)/2;
+  if(max===min){h=s=0;}
+  else{const d=max-min;s=l>.5?d/(2-max-min):d/(max+min);
+    switch(max){case r:h=((g-b)/d+(g<b?6:0))/6;break;case g:h=((b-r)/d+2)/6;break;default:h=((r-g)/d+4)/6;}}
+  return[h,s,l];
+}
+function hslToRgb(h,s,l){
+  let r,g,b;
+  if(s===0){r=g=b=l;}
+  else{const q=l<.5?l*(1+s):l+s-l*s,p=2*l-q;
+    r=hue2rgb(p,q,h+1/3);g=hue2rgb(p,q,h);b=hue2rgb(p,q,h-1/3);}
+  return[r*255|0,g*255|0,b*255|0];
+}
+function hue2rgb(p,q,t){if(t<0)t+=1;if(t>1)t-=1;if(t<1/6)return p+(q-p)*6*t;if(t<.5)return q;if(t<2/3)return p+(q-p)*(2/3-t)*6;return p;}
+
+// ─── CHART ───────────────────────────────────────────────
+function drawChart(canvas,W,H){
+  if(!canvas) return;
+  canvas.width=W; canvas.height=H;
+  const ctx=canvas.getContext('2d');
+  const pd={t:16,r:12,b:22,l:34};
+  const pw=W-pd.l-pd.r, ph=H-pd.t-pd.b;
+  ctx.fillStyle='#08080f'; ctx.fillRect(0,0,W,H);
+  for(let p=0;p<=4;p++){
+    const y=pd.t+ph-(p/4)*ph;
+    ctx.strokeStyle='#131328'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(pd.l,y); ctx.lineTo(pd.l+pw,y); ctx.stroke();
+    ctx.fillStyle='#282848'; ctx.font='7px Space Mono,monospace';
+    ctx.textAlign='right'; ctx.fillText(p*25+'%',pd.l-3,y+3);
+  }
+  ctx.textAlign='left';
+  if(fitLog.length<2){
+    ctx.fillStyle='#202040'; ctx.font='9px Space Mono,monospace';
+    ctx.textAlign='center'; ctx.fillText('NO DATA YET',W/2,H/2+3);
+    ctx.textAlign='left'; return;
+  }
+  const n=fitLog.length;
+  // Area
+  ctx.beginPath(); ctx.moveTo(pd.l,pd.t+ph);
+  fitLog.forEach((f,idx)=>{const x=pd.l+(idx/(n-1))*pw,y=pd.t+ph-f*ph;ctx.lineTo(x,y);});
+  ctx.lineTo(pd.l+pw,pd.t+ph); ctx.closePath();
+  const g2=ctx.createLinearGradient(0,pd.t,0,pd.t+ph);
+  g2.addColorStop(0,'rgba(0,255,170,.2)'); g2.addColorStop(1,'rgba(0,255,170,0)');
+  ctx.fillStyle=g2; ctx.fill();
+  // Line
+  ctx.beginPath(); ctx.strokeStyle='#00ffaa'; ctx.lineWidth=1.5;
+  ctx.shadowColor='#00ffaa'; ctx.shadowBlur=4;
+  fitLog.forEach((f,idx)=>{const x=pd.l+(idx/(n-1))*pw,y=pd.t+ph-f*ph;idx?ctx.lineTo(x,y):ctx.moveTo(x,y);});
+  ctx.stroke(); ctx.shadowBlur=0;
+  // Current marker
+  const lx=pd.l+pw, ly=pd.t+ph-fitLog[n-1]*ph;
+  ctx.beginPath(); ctx.arc(lx,ly,3,0,Math.PI*2);
+  ctx.fillStyle='#00ffaa'; ctx.fill();
+  ctx.fillStyle='#303055'; ctx.font='7px Space Mono,monospace';
+  ctx.textAlign='center'; ctx.fillText('GENERATIONS →',pd.l+pw/2,H-3);
+  ctx.textAlign='left';
+}
+</script>
+</body>
+</html>
