@@ -1,0 +1,1261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Su·doku</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root{
+  --bg:#F7F4EF;
+  --surface:#FFFFFF;
+  --ink:#1C1916;
+  --ink2:#7A746D;
+  --ink3:#C4BCB4;
+  --accent:#C84B2F;
+  --accent-l:#FAECE7;
+  --accent-m:#E8815F;
+  --note:#3B72A0;
+  --note-bg:#EFF5FA;
+  --given:#1C1916;
+  --player:#C84B2F;
+  --hint:#3B72A0;
+  --cell:#FFFFFF;
+  --cb:#E2DDD8;
+  --bb:#1C1916;
+  --sel:#FFF0EB;
+  --snum:#FAECE7;
+  --sarea:#F5F1EB;
+  --err-bg:#FDECEA;
+  --err:#B53020;
+  --conf-bg:#FEF6EA;
+  --conf:#C9720F;
+  --sh:rgba(28,25,22,0.07);
+  --sh2:rgba(28,25,22,0.13);
+  --r:6px;
+}
+
+@media (prefers-color-scheme:dark) {
+  :root{
+    --bg:#1A1714;
+    --surface:#242120;
+    --ink:#EDE8E0;
+    --ink2:#9A948D;
+    --ink3:#5A5550;
+    --accent:#E8714D;
+    --accent-l:#321A10;
+    --accent-m:#C84B2F;
+    --note:#6BACE0;
+    --note-bg:#172130;
+    --given:#EDE8E0;
+    --player:#E8714D;
+    --hint:#6BACE0;
+    --cell:#242120;
+    --cb:#37332F;
+    --bb:#5A5550;
+    --sel:#321A10;
+    --snum:#281408;
+    --sarea:#2A2724;
+    --err-bg:#2E1212;
+    --err:#E06060;
+    --conf-bg:#281E0A;
+    --conf:#DDA040;
+    --sh:rgba(0,0,0,0.3);
+    --sh2:rgba(0,0,0,0.5);
+  }
+}
+
+html,body{
+  height:100%;
+  background:var(--bg);
+  color:var(--ink);
+  font-family:'DM Mono',monospace;
+  -webkit-tap-highlight-color:transparent;
+  overscroll-behavior:none;
+  touch-action:manipulation;
+}
+body{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  min-height:100dvh;
+  padding-bottom:max(20px, env(safe-area-inset-bottom));
+}
+
+/* ─── HEADER ─────────────────────────────── */
+header{
+  width:100%;max-width:430px;
+  padding:16px 16px 10px;
+  display:flex;align-items:center;justify-content:space-between;
+}
+h1{
+  font-family:'Playfair Display',serif;
+  font-size:24px;font-weight:700;
+  letter-spacing:-.5px;color:var(--ink);
+  display:flex;align-items:baseline;gap:1px;
+}
+.dot{color:var(--accent);font-size:20px}
+.hright{display:flex;align-items:center;gap:8px}
+
+.timer-wrap{display:flex;align-items:center;gap:6px}
+.timer{
+  font-size:13px;font-weight:500;color:var(--ink2);
+  letter-spacing:1.5px;font-variant-numeric:tabular-nums;
+  min-width:40px;text-align:right;transition:color .3s;
+}
+.timer.done{color:var(--ink3)}
+
+.pause-btn{
+  width:26px;height:26px;
+  display:flex;align-items:center;justify-content:center;
+  background:none;border:none;cursor:pointer;
+  color:var(--ink3);font-size:12px;
+  border-radius:50%;transition:all .15s;padding:0;
+}
+.pause-btn:hover{color:var(--ink2);background:var(--sarea)}
+.pause-btn:active{transform:scale(.9)}
+
+.hbtn{
+  font-family:'DM Mono',monospace;font-size:10px;font-weight:500;
+  color:var(--ink2);background:none;
+  border:1.5px solid var(--cb);border-radius:var(--r);
+  padding:5px 11px;cursor:pointer;letter-spacing:.4px;
+  text-transform:uppercase;transition:all .15s;
+}
+.hbtn:hover{border-color:var(--ink3);color:var(--ink)}
+.hbtn:active{opacity:.6;transform:scale(.96)}
+
+/* ─── CONTROLS ───────────────────────────── */
+.ctrl{
+  width:100%;max-width:430px;
+  padding:0 16px 10px;
+  display:flex;align-items:center;justify-content:space-between;
+}
+.pills{display:flex;gap:4px}
+.pill{
+  font-family:'DM Mono',monospace;
+  font-size:10px;font-weight:500;
+  padding:4px 9px;border-radius:20px;
+  border:1.5px solid var(--cb);
+  background:none;color:var(--ink2);
+  cursor:pointer;letter-spacing:.4px;text-transform:uppercase;
+  transition:all .15s;
+}
+.pill.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.pill:active{transform:scale(.94)}
+
+.right-ctrl{display:flex;align-items:center;gap:10px}
+.notes-tog{
+  display:flex;align-items:center;gap:6px;
+  font-size:10.5px;color:var(--ink2);
+  cursor:pointer;user-select:none;letter-spacing:.2px;
+}
+.tog-track{
+  width:32px;height:17px;border-radius:9px;
+  background:var(--cb);position:relative;
+  transition:background .2s;flex-shrink:0;
+}
+.tog-track.on{background:var(--accent)}
+.tog-thumb{
+  position:absolute;top:2px;left:2px;
+  width:13px;height:13px;border-radius:50%;
+  background:#fff;transition:transform .2s;
+  box-shadow:0 1px 3px rgba(0,0,0,.25);
+}
+.tog-track.on .tog-thumb{transform:translateX(15px)}
+
+/* ─── BOARD ──────────────────────────────── */
+.bwrap{width:100%;max-width:430px;padding:0 10px}
+
+.board{
+  width:100%;aspect-ratio:1;
+  display:grid;
+  grid-template-columns:repeat(9,1fr);
+  grid-template-rows:repeat(9,1fr);
+  border:2.5px solid var(--bb);
+  border-radius:var(--r);overflow:hidden;
+  background:var(--bb);
+  box-shadow:0 6px 24px var(--sh), 0 2px 6px var(--sh2);
+  position:relative;
+}
+
+.cell{
+  position:relative;
+  background:var(--cell);
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;
+  user-select:none;-webkit-user-select:none;
+  transition:background .06s;
+  border-right:.5px solid var(--cb);
+  border-bottom:.5px solid var(--cb);
+}
+/* box borders */
+.cell:nth-child(9n){border-right:none}
+.cell:nth-child(n+73){border-bottom:none}
+.cell:nth-child(3n):not(:nth-child(9n)){border-right:2px solid var(--bb)}
+.cell:nth-child(n+19):nth-child(-n+27),
+.cell:nth-child(n+46):nth-child(-n+54){border-bottom:2px solid var(--bb)}
+
+/* highlight states — layered via background */
+.cell.sarea{background:var(--sarea)}
+.cell.snum{background:var(--snum)}
+.cell.sel{background:var(--sel)}
+.cell.err{background:var(--err-bg)}
+.cell.conflict:not(.sel):not(.err){background:var(--conf-bg)}
+
+/* numbers */
+.cin{
+  font-size:clamp(14px,4vw,22px);
+  font-weight:500;
+  font-family:'DM Mono',monospace;
+  font-variant-numeric:tabular-nums;
+  line-height:1;
+  letter-spacing:-.5px;
+  pointer-events:none;
+}
+.cell.given .cin{color:var(--given)}
+.cell.player .cin{color:var(--player)}
+.cell.hint-cell .cin{color:var(--hint)}
+.cell.err .cin{color:var(--err)}
+.cell.conflict:not(.err) .cin{color:var(--conf)}
+
+/* animations */
+.cell.popin .cin{animation:popIn .16s cubic-bezier(.34,1.6,.64,1)}
+@keyframes popIn{
+  0%{transform:scale(.4);opacity:.2}
+  100%{transform:scale(1);opacity:1}
+}
+.cell.shake{animation:shake .32s ease}
+@keyframes shake{
+  0%,100%{transform:translateX(0)}
+  18%{transform:translateX(-4px)}
+  36%{transform:translateX(4px)}
+  54%{transform:translateX(-3px)}
+  72%{transform:translateX(3px)}
+}
+/* ripple on correct */
+.cell.correct-flash::after{
+  content:'';
+  position:absolute;inset:0;
+  background:rgba(29,158,117,.18);
+  animation:flash .4s ease-out forwards;
+  pointer-events:none;
+}
+@keyframes flash{
+  0%{opacity:1}100%{opacity:0;transform:scale(1.3)}
+}
+
+/* notes grid */
+.cnotes{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  grid-template-rows:repeat(3,1fr);
+  width:91%;height:91%;
+}
+.nd{
+  display:flex;align-items:center;justify-content:center;
+  font-size:clamp(5px,1.3vw,9px);
+  font-family:'DM Mono',monospace;
+  color:var(--note);
+  font-weight:400;line-height:1;
+  pointer-events:none;
+}
+/* dim notes that can't be this cell's answer */
+.nd.impossible{opacity:.22}
+
+/* ─── PROGRESS ───────────────────────────── */
+.prog{width:100%;max-width:430px;padding:8px 10px 2px}
+.prog-track{height:3px;background:var(--cb);border-radius:2px;overflow:hidden}
+.prog-fill{
+  height:100%;
+  background:linear-gradient(90deg, var(--accent-m), var(--accent));
+  border-radius:2px;
+  transition:width .55s cubic-bezier(.34,1.1,.64,1);
+  width:0%;
+}
+
+/* ─── MISTAKES ───────────────────────────── */
+.mrow{
+  width:100%;max-width:430px;
+  padding:5px 16px 4px;
+  display:flex;align-items:center;justify-content:space-between;
+  font-size:11px;color:var(--ink2);
+}
+.mdots{display:flex;gap:5px;align-items:center}
+.mdot{
+  width:7px;height:7px;border-radius:50%;
+  border:1.5px solid var(--ink3);
+  transition:all .3s;
+}
+.mdot.lit{
+  background:var(--err);border-color:var(--err);
+  box-shadow:0 0 6px rgba(200,50,30,.4);
+}
+/* Score display */
+.score-wrap{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--ink3)}
+.score-val{color:var(--ink2);font-weight:500;font-variant-numeric:tabular-nums}
+
+/* ─── ACTION BUTTONS ─────────────────────── */
+.arow{
+  width:100%;max-width:430px;
+  padding:6px 12px 3px;
+  display:flex;gap:5px;justify-content:center;
+}
+.abtn{
+  display:flex;flex-direction:column;align-items:center;gap:2px;
+  background:var(--surface);border:1.5px solid var(--cb);
+  border-radius:10px;padding:8px 10px;
+  cursor:pointer;transition:all .12s;
+  flex:1;max-width:80px;
+}
+.abtn:hover{border-color:var(--ink3);background:var(--sarea)}
+.abtn:active{transform:scale(.92);opacity:.75}
+.abtn.disabled{opacity:.28;pointer-events:none}
+.abtn.notes-on{border-color:var(--accent);background:var(--accent-l)}
+.aico{font-size:15px;line-height:1.2}
+.albl{font-family:'DM Mono',monospace;font-size:9px;color:var(--ink2);text-transform:uppercase;letter-spacing:.4px;font-weight:500}
+.abtn.notes-on .albl{color:var(--accent)}
+.hint-rem{font-size:8px;color:var(--note);font-weight:400;line-height:1}
+
+/* ─── NUMPAD ─────────────────────────────── */
+.numpad{
+  width:100%;max-width:430px;
+  padding:3px 12px 10px;
+  display:grid;grid-template-columns:repeat(9,1fr);gap:4px;
+}
+.nbtn{
+  aspect-ratio:1;
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:1px;
+  font-family:'DM Mono',monospace;
+  font-size:clamp(14px,3.6vw,21px);font-weight:500;
+  background:var(--surface);border:1.5px solid var(--cb);
+  border-radius:9px;cursor:pointer;color:var(--ink);
+  transition:all .1s;position:relative;
+  box-shadow:0 1px 3px var(--sh);
+}
+.nbtn:hover{border-color:var(--ink3)}
+.nbtn:active{transform:scale(.86);background:var(--accent-l);border-color:var(--accent)}
+.nbtn.done{opacity:.18;pointer-events:none}
+.nbtn.active-num{
+  border-color:var(--accent);
+  background:var(--accent-l);
+  color:var(--accent);
+  box-shadow:0 0 0 2px var(--accent-l), 0 1px 3px var(--sh);
+}
+.nbtn .rem{font-size:7px;font-weight:400;color:var(--ink3);line-height:1;font-variant-numeric:tabular-nums}
+.nbtn.active-num .rem{color:var(--accent-m)}
+
+/* ─── PAUSE OVERLAY ──────────────────────── */
+.pause-screen{
+  position:fixed;inset:0;
+  background:var(--bg);
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  gap:16px;z-index:80;
+  opacity:0;pointer-events:none;
+  transition:opacity .2s;
+}
+.pause-screen.show{opacity:1;pointer-events:all}
+.pause-screen h2{
+  font-family:'Playfair Display',serif;
+  font-size:28px;color:var(--ink);
+}
+.pause-screen p{font-size:12px;color:var(--ink2);letter-spacing:.3px}
+.resume-btn{
+  font-family:'DM Mono',monospace;font-size:11px;font-weight:500;
+  padding:11px 28px;border-radius:10px;border:none;
+  background:var(--accent);color:#fff;
+  cursor:pointer;letter-spacing:.5px;text-transform:uppercase;
+  transition:all .15s;margin-top:8px;
+}
+.resume-btn:active{transform:scale(.97);opacity:.85}
+
+/* ─── MODAL ──────────────────────────────── */
+.overlay{
+  position:fixed;inset:0;
+  background:rgba(26,23,20,.65);
+  display:flex;align-items:center;justify-content:center;
+  z-index:100;backdrop-filter:blur(10px);
+  opacity:0;pointer-events:none;transition:opacity .28s;
+}
+.overlay.show{opacity:1;pointer-events:all}
+.modal{
+  background:var(--surface);
+  border-radius:22px;
+  padding:30px 26px;
+  max-width:296px;width:90%;
+  text-align:center;
+  transform:scale(.86) translateY(12px);
+  transition:transform .32s cubic-bezier(.34,1.38,.64,1);
+  box-shadow:0 20px 64px rgba(0,0,0,.28);
+  position:relative;overflow:hidden;
+}
+.overlay.show .modal{transform:scale(1) translateY(0)}
+.modal-shine{
+  position:absolute;top:0;left:0;right:0;height:50%;
+  background:linear-gradient(180deg,rgba(255,255,255,.08),transparent);
+  pointer-events:none;
+}
+.mico{font-size:42px;margin-bottom:10px;display:block}
+.mtit{
+  font-family:'Playfair Display',serif;
+  font-size:23px;font-weight:700;
+  margin-bottom:6px;color:var(--ink);
+}
+.mstat{
+  display:flex;justify-content:center;
+  gap:0;margin:16px 0;
+  border:1px solid var(--cb);border-radius:12px;overflow:hidden;
+}
+.mstat-item{
+  flex:1;padding:12px 8px;
+  display:flex;flex-direction:column;align-items:center;gap:3px;
+}
+.mstat-item+.mstat-item{border-left:1px solid var(--cb)}
+.mstat-val{font-size:19px;font-weight:500;color:var(--ink);font-variant-numeric:tabular-nums}
+.mstat-lbl{font-size:9px;color:var(--ink3);text-transform:uppercase;letter-spacing:.5px}
+.msub{font-size:12px;color:var(--ink2);line-height:1.7;margin-bottom:18px}
+.score-badge{
+  display:inline-block;
+  font-size:11px;font-weight:500;
+  padding:4px 12px;border-radius:20px;
+  background:var(--sarea);color:var(--ink2);
+  margin-bottom:16px;letter-spacing:.3px;
+}
+.score-badge.great{background:var(--accent-l);color:var(--accent)}
+.mbtn{
+  font-family:'DM Mono',monospace;font-size:11px;font-weight:500;
+  padding:13px 24px;border-radius:12px;border:none;
+  background:var(--accent);color:#fff;cursor:pointer;
+  letter-spacing:.5px;text-transform:uppercase;
+  width:100%;transition:all .15s;
+}
+.mbtn:active{transform:scale(.97);opacity:.85}
+
+/* ─── CONFETTI ───────────────────────────── */
+.confetti-wrap{
+  position:fixed;inset:0;
+  pointer-events:none;z-index:95;overflow:hidden;
+}
+.cp{
+  position:absolute;top:-12px;
+  animation:cffall linear forwards;
+  will-change:transform;
+}
+@keyframes cffall{
+  to{transform:translateY(110vh) rotate(900deg);opacity:0}
+}
+
+/* ─── TOAST ──────────────────────────────── */
+.toast{
+  position:fixed;
+  bottom:max(76px, env(safe-area-inset-bottom, 76px));
+  left:50%;
+  transform:translateX(-50%) translateY(14px);
+  background:var(--ink);color:var(--bg);
+  font-size:11.5px;padding:8px 18px;
+  border-radius:20px;
+  opacity:0;pointer-events:none;
+  transition:opacity .25s, transform .25s;
+  white-space:nowrap;z-index:200;
+  letter-spacing:.2px;
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* ─── GENERATING ─────────────────────────── */
+.gen-wrap{
+  grid-column:1/-1;grid-row:1/-1;
+  display:flex;align-items:center;justify-content:center;
+  gap:6px;opacity:.3;font-size:11px;color:var(--ink2);
+}
+.gen-dots span{display:inline-block;animation:gdot 1.1s ease-in-out infinite}
+.gen-dots span:nth-child(2){animation-delay:.18s}
+.gen-dots span:nth-child(3){animation-delay:.36s}
+@keyframes gdot{0%,80%,100%{opacity:.15;transform:translateY(0)}40%{opacity:1;transform:translateY(-2px)}}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Su<span class="dot">·</span>doku</h1>
+  <div class="hright">
+    <div class="timer-wrap">
+      <div class="timer" id="timer">0:00</div>
+      <button class="pause-btn" id="pauseBtn" onclick="togglePause()" title="Pause (P)">⏸</button>
+    </div>
+    <button class="hbtn" onclick="newGame()">New</button>
+  </div>
+</header>
+
+<div class="ctrl">
+  <div class="pills">
+    <button class="pill on" data-d="easy"   onclick="setDiff(this)">Easy</button>
+    <button class="pill"    data-d="medium" onclick="setDiff(this)">Med</button>
+    <button class="pill"    data-d="hard"   onclick="setDiff(this)">Hard</button>
+    <button class="pill"    data-d="expert" onclick="setDiff(this)">Expert</button>
+  </div>
+  <div class="right-ctrl">
+    <label class="notes-tog" onclick="toggleNotes()">
+      <span>Notes</span>
+      <div class="tog-track" id="ttrack"><div class="tog-thumb"></div></div>
+    </label>
+  </div>
+</div>
+
+<div class="bwrap"><div class="board" id="board"></div></div>
+
+<div class="prog"><div class="prog-track"><div class="prog-fill" id="pfill"></div></div></div>
+
+<div class="mrow">
+  <div class="mdots" id="mdots">
+    <div class="mdot" id="d0"></div>
+    <div class="mdot" id="d1"></div>
+    <div class="mdot" id="d2"></div>
+    <span style="font-size:11px;color:var(--ink3);margin-left:5px">mistakes</span>
+  </div>
+  <div class="score-wrap">
+    <span>Score</span>
+    <span class="score-val" id="scoreDisp">0</span>
+  </div>
+</div>
+
+<div class="arow">
+  <button class="abtn" id="undoBtn"  onclick="doUndo()">
+    <div class="aico">↩</div><div class="albl">Undo</div>
+  </button>
+  <button class="abtn" id="eraseBtn" onclick="doErase()">
+    <div class="aico">⌫</div><div class="albl">Erase</div>
+  </button>
+  <button class="abtn" id="notesBtn" onclick="toggleNotes()">
+    <div class="aico">✏️</div><div class="albl">Notes</div>
+  </button>
+  <button class="abtn" id="autoBtn"  onclick="doAutoNotes()">
+    <div class="aico">🔍</div><div class="albl">Auto</div>
+  </button>
+  <button class="abtn" id="hintBtn"  onclick="doHint()">
+    <div class="aico">💡</div>
+    <div class="albl">Hint</div>
+    <div class="hint-rem" id="hintRem"></div>
+  </button>
+</div>
+
+<div class="numpad" id="numpad"></div>
+
+<!-- Pause screen -->
+<div class="pause-screen" id="pauseScreen">
+  <h2>Paused</h2>
+  <p>Your puzzle is waiting.</p>
+  <button class="resume-btn" onclick="togglePause()">Resume</button>
+</div>
+
+<!-- Win / lose modal -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <div class="modal-shine"></div>
+    <span class="mico" id="mico">🎉</span>
+    <div class="mtit" id="mtit">Solved!</div>
+    <div class="mstat" id="mstat"></div>
+    <div class="score-badge" id="scoreBadge"></div>
+    <div class="msub"  id="msub"></div>
+    <button class="mbtn" id="modalBtn" onclick="newGame()">Play Again</button>
+  </div>
+</div>
+
+<div class="confetti-wrap" id="confettiWrap"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+/* ═══════════════════════════════════════════════
+   CONSTANTS
+═══════════════════════════════════════════════ */
+const MAX_MISTAKES = 3;
+const REMOVE       = {easy:36, medium:46, hard:54, expert:62};
+const HINT_LIMITS  = {easy:5,  medium:4,  hard:3,  expert:2};
+const SCORE_BASE   = {easy:500, medium:1000, hard:2000, expert:3500};
+
+/* ═══════════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════════ */
+let puzzle, solution, board, notes, hintSet;
+let sel        = -1;
+let activeNum  = null;
+let notesMode  = false;
+let diff       = 'easy';
+let mistakes   = 0;
+let hints      = 0;
+let maxHints   = 5;
+let score      = 0;
+let done       = false;
+let paused     = false;
+let secs       = 0;
+let timerInt   = null;
+let hist       = [];
+let toastTimer = null;
+let cells      = [];   // cached DOM cell references
+
+/* ═══════════════════════════════════════════════
+   PUZZLE GENERATION
+═══════════════════════════════════════════════ */
+function shuffle(a) {
+  const b = [...a];
+  for (let i = b.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [b[i], b[j]] = [b[j], b[i]];
+  }
+  return b;
+}
+
+function isValid(b, pos, n) {
+  const r = pos / 9 | 0, c = pos % 9;
+  for (let i = 0; i < 9; i++)
+    if (b[r*9+i] === n || b[i*9+c] === n) return false;
+  const br = (r/3|0)*3, bc = (c/3|0)*3;
+  for (let dr = 0; dr < 3; dr++)
+    for (let dc = 0; dc < 3; dc++)
+      if (b[(br+dr)*9+bc+dc] === n) return false;
+  return true;
+}
+
+function genSolved() {
+  const b = Array(81).fill(0);
+  (function fill(p) {
+    if (p === 81) return true;
+    if (b[p]) return fill(p+1);
+    for (const n of shuffle([1,2,3,4,5,6,7,8,9])) {
+      if (isValid(b, p, n)) { b[p]=n; if (fill(p+1)) return true; b[p]=0; }
+    }
+    return false;
+  })(0);
+  return b;
+}
+
+function countSol(b, lim=2) {
+  let cnt = 0;
+  (function sv(p) {
+    if (cnt >= lim || p === 81) { if (p===81) cnt++; return; }
+    if (b[p]) { sv(p+1); return; }
+    for (let n=1; n<=9; n++) {
+      if (isValid(b,p,n)) { b[p]=n; sv(p+1); b[p]=0; if (cnt>=lim) return; }
+    }
+  })(0);
+  return cnt;
+}
+
+function genPuzzle(d) {
+  const sol = genSolved();
+  const puz = [...sol];
+  let removed = 0;
+  for (const pos of shuffle([...Array(81).keys()])) {
+    if (removed >= REMOVE[d]) break;
+    const bk = puz[pos]; puz[pos] = 0;
+    if (countSol([...puz], 2) === 1) removed++;
+    else puz[pos] = bk;
+  }
+  return { puzzle: puz, solution: sol };
+}
+
+/* ═══════════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════════ */
+function init() {
+  const bel = document.getElementById('board');
+  bel.innerHTML = '<div class="gen-wrap">Generating<span class="gen-dots"><span>.</span><span>.</span><span>.</span></span></div>';
+
+  // Run heavy work slightly deferred so the loading UI renders
+  setTimeout(() => {
+    const g = genPuzzle(diff);
+    puzzle   = g.puzzle.map(v => v || null);
+    solution = g.solution;
+    board    = [...puzzle];
+    notes    = Array.from({length:81}, () => new Set());
+    hintSet  = new Set();
+    hist     = [];
+    mistakes = 0; hints = 0; score = 0;
+    notesMode = false; done = false; paused = false;
+    sel = -1; activeNum = null; secs = 0;
+    maxHints = HINT_LIMITS[diff];
+
+    clearInterval(timerInt);
+    timerInt = setInterval(tickTimer, 1000);
+
+    buildBoard();
+    updTimer(); updMistakes(); updNumpad(); updProg();
+    updNotesTog(); updHintBtn(); updActionBtns();
+    updScore(); updPauseBtn();
+    document.getElementById('pauseScreen').classList.remove('show');
+    document.getElementById('timer').classList.remove('done');
+  }, 30);
+}
+
+/* ═══════════════════════════════════════════════
+   TIMER
+═══════════════════════════════════════════════ */
+function tickTimer() {
+  if (!done && !paused) { secs++; updTimer(); }
+}
+function updTimer() {
+  const m = secs/60|0, s = secs%60;
+  document.getElementById('timer').textContent = `${m}:${s.toString().padStart(2,'0')}`;
+}
+
+/* ═══════════════════════════════════════════════
+   BUILD BOARD (once, then mutate)
+═══════════════════════════════════════════════ */
+function buildBoard() {
+  const bel = document.getElementById('board');
+  bel.innerHTML = '';
+  cells = [];
+  for (let i = 0; i < 81; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'cell';
+    cell.dataset.i = i;
+    cell.addEventListener('pointerdown', e => { e.preventDefault(); selectCell(i); });
+    bel.appendChild(cell);
+    cells.push(cell);
+  }
+  renderAllCells();
+  applyHL();
+}
+
+/* ═══════════════════════════════════════════════
+   CELL RENDERING (surgical updates)
+═══════════════════════════════════════════════ */
+function renderCell(i, animMode = '') {
+  const cell = cells[i];
+  if (!cell) return;
+
+  // Remove state classes, keep only base
+  cell.className = 'cell';
+
+  const pVal = puzzle[i], bVal = board[i];
+
+  if (pVal != null) {
+    // Given
+    cell.classList.add('given');
+    cell.innerHTML = `<div class="cin">${pVal}</div>`;
+  } else if (bVal != null) {
+    // Player / hint / error
+    if (hintSet.has(i))          cell.classList.add('hint-cell');
+    else if (bVal !== solution[i]) cell.classList.add('err');
+    else                           cell.classList.add('player');
+    if (animMode === 'pop')  cell.classList.add('popin');
+    if (animMode === 'shake') cell.classList.add('shake');
+    if (animMode === 'flash') {
+      cell.classList.add('correct-flash');
+      setTimeout(() => cell.classList.remove('correct-flash'), 500);
+    }
+    cell.innerHTML = `<div class="cin">${bVal}</div>`;
+  } else if (notes[i].size > 0) {
+    // Notes
+    let html = '<div class="cnotes">';
+    for (let n = 1; n <= 9; n++) {
+      const show = notes[i].has(n);
+      // If the cell's row/col/box already has this number solved, dim it
+      const impossible = show && isImpossibleNote(i, n);
+      html += `<div class="nd${impossible?' impossible':''}">${show ? n : ''}</div>`;
+    }
+    html += '</div>';
+    cell.innerHTML = html;
+  } else {
+    cell.innerHTML = '';
+  }
+}
+
+function isImpossibleNote(idx, n) {
+  // n is placed in same row, col, or box
+  const row = idx/9|0, col = idx%9;
+  const br = (row/3|0)*3, bc = (col/3|0)*3;
+  for (let i = 0; i < 81; i++) {
+    if (i === idx) continue;
+    const v = board[i] ?? puzzle[i];
+    if (v !== n) continue;
+    const r = i/9|0, c = i%9;
+    if (r===row || c===col || ((r/3|0)*3===br && (c/3|0)*3===bc)) return true;
+  }
+  return false;
+}
+
+function renderAllCells(animIdx = -1) {
+  for (let i = 0; i < 81; i++) renderCell(i, i===animIdx ? 'pop' : '');
+}
+
+/* ═══════════════════════════════════════════════
+   SELECTION & HIGHLIGHT
+═══════════════════════════════════════════════ */
+function selectCell(idx) {
+  if (done || paused) return;
+  if (activeNum !== null && puzzle[idx] == null) {
+    sel = idx;
+    inputNum(activeNum);
+    return;
+  }
+  sel = idx;
+  applyHL();
+  updActionBtns();
+}
+
+function applyHL() {
+  if (!cells.length) return;
+
+  // Precompute conflict set globally (always on)
+  const conflicts = new Set();
+  for (let i = 0; i < 81; i++) {
+    const vi = board[i] ?? puzzle[i];
+    if (!vi) continue;
+    for (let j = i+1; j < 81; j++) {
+      const vj = board[j] ?? puzzle[j];
+      if (vi !== vj) continue;
+      const ri=i/9|0, ci=i%9, rj=j/9|0, cj=j%9;
+      if (ri===rj || ci===cj || ((ri/3|0)*3===(rj/3|0)*3 && (ci/3|0)*3===(cj/3|0)*3))
+        { conflicts.add(i); conflicts.add(j); }
+    }
+  }
+
+  const row = sel<0 ? -1 : sel/9|0;
+  const col = sel<0 ? -1 : sel%9;
+  const br  = sel<0 ? -1 : (row/3|0)*3;
+  const bc  = sel<0 ? -1 : (col/3|0)*3;
+  const sv  = sel<0 ? null : (board[sel] ?? puzzle[sel]);
+
+  cells.forEach((cell, i) => {
+    // Remove old HL classes without touching state classes
+    cell.classList.remove('sel','snum','sarea','conflict');
+
+    if (sel < 0) {
+      if (conflicts.has(i) && !cell.classList.contains('err')) cell.classList.add('conflict');
+      return;
+    }
+
+    if (i === sel) { cell.classList.add('sel'); return; }
+
+    const r = i/9|0, c = i%9;
+    const inZone = r===row || c===col || ((r/3|0)*3===br && (c/3|0)*3===bc);
+    if (inZone) cell.classList.add('sarea');
+
+    const v = board[i] ?? puzzle[i];
+    if (sv && v===sv) cell.classList.add('snum');
+
+    if (conflicts.has(i) && !cell.classList.contains('err')) cell.classList.add('conflict');
+  });
+}
+
+/* ═══════════════════════════════════════════════
+   INPUT
+═══════════════════════════════════════════════ */
+function inputNum(n) {
+  if (sel < 0 || done || paused) return;
+  if (puzzle[sel] != null) return;
+
+  if (notesMode) {
+    if (board[sel] != null) return;
+    hist.push({t:'note', i:sel, ns:new Set(notes[sel])});
+    notes[sel].has(n) ? notes[sel].delete(n) : notes[sel].add(n);
+    renderCell(sel);
+    applyHL();
+    return;
+  }
+
+  hist.push({t:'cell', i:sel, pv:board[sel], pn:new Set(notes[sel])});
+  notes[sel].clear();
+
+  if (board[sel] === n) {
+    // Toggle off
+    board[sel] = null;
+    renderCell(sel);
+    applyHL();
+    updNumpad(); updProg(); updActionBtns();
+    return;
+  }
+
+  board[sel] = n;
+
+  if (n !== solution[sel]) {
+    // Wrong
+    mistakes++; updMistakes();
+    scoreChange(-50);
+    renderCell(sel, 'shake');
+    applyHL();
+    if (mistakes >= MAX_MISTAKES) setTimeout(gameOver, 500);
+  } else {
+    // Correct
+    hintSet.delete(sel); // in case they re-entered a hinted cell
+    clearCrossNotes(sel, n);
+    scoreChange(+10);
+    renderAllCells(sel);
+    // flash correct-entry
+    setTimeout(() => cells[sel]?.classList.add('correct-flash'), 10);
+    setTimeout(() => cells[sel]?.classList.remove('correct-flash'), 510);
+    applyHL();
+    checkWin();
+  }
+
+  updNumpad(); updProg(); updActionBtns();
+}
+
+function clearCrossNotes(idx, n) {
+  const row=idx/9|0, col=idx%9;
+  const br=(row/3|0)*3, bc=(col/3|0)*3;
+  for (let i=0; i<81; i++) {
+    if (!notes[i].has(n)) continue;
+    const r=i/9|0, c=i%9;
+    if (r===row||c===col||((r/3|0)*3===br&&(c/3|0)*3===bc)) notes[i].delete(n);
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   ACTIONS
+═══════════════════════════════════════════════ */
+function doErase() {
+  if (sel<0 || puzzle[sel]!=null || done || paused) return;
+  if (board[sel]==null && notes[sel].size===0) return;
+  hist.push({t:'cell', i:sel, pv:board[sel], pn:new Set(notes[sel])});
+  hintSet.delete(sel);
+  board[sel]=null; notes[sel].clear();
+  renderCell(sel); applyHL();
+  updNumpad(); updProg(); updActionBtns();
+}
+
+function doUndo() {
+  if (!hist.length || done) return;
+  const last = hist.pop();
+  if (last.t==='cell') {
+    hintSet.delete(last.i);
+    board[last.i]=last.pv; notes[last.i]=last.pn;
+  } else {
+    notes[last.i]=last.ns;
+  }
+  renderCell(last.i); applyHL();
+  updNumpad(); updProg(); updActionBtns();
+}
+
+function doHint() {
+  if (done || paused || hints >= maxHints) return;
+
+  // Prefer selected empty cell
+  let idx = -1;
+  if (sel>=0 && puzzle[sel]==null && board[sel]==null) {
+    idx = sel;
+  } else {
+    const empty=[];
+    for (let i=0;i<81;i++) if (puzzle[i]==null && board[i]==null) empty.push(i);
+    if (!empty.length) return;
+    idx = empty[Math.floor(Math.random()*empty.length)];
+  }
+
+  hist.push({t:'cell', i:idx, pv:board[idx], pn:new Set(notes[idx])});
+  board[idx]=solution[idx]; notes[idx].clear();
+  hintSet.add(idx);
+  clearCrossNotes(idx, solution[idx]);
+  sel=idx; hints++;
+  scoreChange(-100);
+  renderAllCells(idx); applyHL();
+  updNumpad(); updProg(); updHintBtn(); updActionBtns();
+  checkWin();
+}
+
+/* Auto-fill all possible notes for empty cells */
+function doAutoNotes() {
+  if (done || paused) return;
+  let changed = false;
+  for (let i=0; i<81; i++) {
+    if (puzzle[i]!=null || board[i]!=null) continue;
+    const prev = new Set(notes[i]);
+    const possible = new Set();
+    for (let n=1; n<=9; n++) if (isValid(board.map((v,k)=>v??puzzle[k]??0), i, n)) possible.add(n);
+    if (possible.size !== prev.size || [...possible].some(x=>!prev.has(x))) {
+      hist.push({t:'note', i, ns:prev});
+      notes[i]=possible;
+      changed=true;
+    }
+  }
+  if (changed) { renderAllCells(); applyHL(); showToast('Auto-notes filled'); }
+  else showToast('Notes already up to date');
+}
+
+/* ═══════════════════════════════════════════════
+   PAUSE
+═══════════════════════════════════════════════ */
+function togglePause() {
+  if (done) return;
+  paused = !paused;
+  document.getElementById('pauseScreen').classList.toggle('show', paused);
+  updPauseBtn();
+  if (!paused) {
+    // Hide board from view while paused
+    document.getElementById('board').style.visibility = 'visible';
+  } else {
+    document.getElementById('board').style.visibility = 'hidden';
+  }
+}
+function updPauseBtn() {
+  document.getElementById('pauseBtn').textContent = paused ? '▶' : '⏸';
+}
+
+/* ═══════════════════════════════════════════════
+   SCORE
+═══════════════════════════════════════════════ */
+function scoreChange(delta) {
+  score = Math.max(0, score + delta);
+  updScore();
+}
+function updScore() {
+  document.getElementById('scoreDisp').textContent = score;
+}
+function finalScore() {
+  // Base - time penalty - mistake penalty, remaining hints bonus
+  const base    = SCORE_BASE[diff];
+  const timePen = Math.min(secs * 2, base * 0.5);
+  const mkPen   = mistakes * 150;
+  const hintPen = hints * 200;
+  return Math.max(0, Math.round(base - timePen - mkPen - hintPen));
+}
+
+/* ═══════════════════════════════════════════════
+   UI UPDATES
+═══════════════════════════════════════════════ */
+function updMistakes() {
+  for (let i=0;i<3;i++)
+    document.getElementById('d'+i).classList.toggle('lit', i<mistakes);
+}
+
+function updNumpad() {
+  const counts = Array(10).fill(0);
+  for (let i=0;i<81;i++) { const v=board[i]??puzzle[i]; if(v) counts[v]++; }
+  document.querySelectorAll('.nbtn').forEach(btn => {
+    const n = +btn.dataset.n;
+    const rem = 9-counts[n];
+    btn.classList.toggle('done', rem<=0);
+    btn.classList.toggle('active-num', activeNum===n && !notesMode);
+    const rs=btn.querySelector('.rem');
+    if (rs) rs.textContent = rem>0 ? rem : '';
+  });
+}
+
+function updProg() {
+  let f=0;
+  for (let i=0;i<81;i++) { const v=board[i]??puzzle[i]; if(v&&v===solution[i]) f++; }
+  document.getElementById('pfill').style.width=(f/81*100)+'%';
+}
+
+function updHintBtn() {
+  const rem=maxHints-hints;
+  document.getElementById('hintRem').textContent = rem>0 ? `${rem} left` : '';
+  document.getElementById('hintBtn').classList.toggle('disabled', rem<=0);
+}
+
+function updActionBtns() {
+  const canErase = sel>=0 && puzzle[sel]==null && (board[sel]!=null || notes[sel].size>0);
+  document.getElementById('eraseBtn').classList.toggle('disabled', !canErase);
+  document.getElementById('undoBtn').classList.toggle('disabled', hist.length===0);
+}
+
+function updNotesTog() {
+  document.getElementById('ttrack').classList.toggle('on', notesMode);
+  document.getElementById('notesBtn').classList.toggle('notes-on', notesMode);
+}
+
+function toggleNotes() {
+  notesMode=!notesMode;
+  if (notesMode) activeNum=null;
+  updNotesTog(); updNumpad();
+}
+
+/* ═══════════════════════════════════════════════
+   WIN / LOSS
+═══════════════════════════════════════════════ */
+function checkWin() {
+  for (let i=0;i<81;i++) {
+    const v=board[i]??puzzle[i];
+    if (!v||v!==solution[i]) return;
+  }
+  done=true;
+  clearInterval(timerInt);
+  document.getElementById('timer').classList.add('done');
+  launchConfetti();
+  setTimeout(showWin, 700);
+}
+
+function showWin() {
+  const perfect = hints===0 && mistakes===0;
+  const fs      = finalScore();
+  document.getElementById('mico').textContent = perfect ? '🏆' : mistakes===0 ? '🎉' : '⭐';
+  document.getElementById('mtit').textContent = 'Solved!';
+
+  const m=secs/60|0, s=secs%60;
+  document.getElementById('mstat').innerHTML = `
+    <div class="mstat-item">
+      <div class="mstat-val">${m}:${s.toString().padStart(2,'0')}</div>
+      <div class="mstat-lbl">Time</div>
+    </div>
+    <div class="mstat-item">
+      <div class="mstat-val">${mistakes}</div>
+      <div class="mstat-lbl">Mistakes</div>
+    </div>
+    <div class="mstat-item">
+      <div class="mstat-val">${hints}</div>
+      <div class="mstat-lbl">Hints</div>
+    </div>
+  `;
+  const badge = document.getElementById('scoreBadge');
+  badge.textContent = `Score: ${fs.toLocaleString()}`;
+  badge.className = 'score-badge' + (perfect ? ' great' : '');
+
+  document.getElementById('msub').textContent = perfect
+    ? 'Flawless! No hints, no mistakes.'
+    : hints===0
+      ? `Clean solve — ${mistakes} mistake${mistakes!==1?'s':''}!`
+      : `Solved with ${hints} hint${hints!==1?'s':''} and ${mistakes} mistake${mistakes!==1?'s':''}.`;
+
+  document.getElementById('modalBtn').textContent = 'Play Again';
+  document.getElementById('overlay').classList.add('show');
+}
+
+function gameOver() {
+  done=true; clearInterval(timerInt);
+  document.getElementById('timer').classList.add('done');
+  document.getElementById('mico').textContent='💔';
+  document.getElementById('mtit').textContent='Game Over';
+  const m=secs/60|0, s=secs%60;
+  document.getElementById('mstat').innerHTML=`
+    <div class="mstat-item">
+      <div class="mstat-val">${m}:${s.toString().padStart(2,'0')}</div>
+      <div class="mstat-lbl">Time</div>
+    </div>
+    <div class="mstat-item">
+      <div class="mstat-val">3</div>
+      <div class="mstat-lbl">Mistakes</div>
+    </div>
+  `;
+  document.getElementById('scoreBadge').textContent='';
+  document.getElementById('msub').textContent='Three mistakes reached. Better luck next time!';
+  document.getElementById('modalBtn').textContent='Try Again';
+  document.getElementById('overlay').classList.add('show');
+}
+
+/* ═══════════════════════════════════════════════
+   CONFETTI
+═══════════════════════════════════════════════ */
+function launchConfetti() {
+  const wrap   = document.getElementById('confettiWrap');
+  const colors = ['#C84B2F','#3B72A0','#1D9E75','#E67E22','#E8815F','#6BACE0','#F5D76E'];
+  wrap.innerHTML='';
+  for (let i=0;i<70;i++) {
+    const el=document.createElement('div');
+    el.className='cp';
+    const size=5+Math.random()*8;
+    el.style.cssText=`
+      left:${Math.random()*100}%;
+      background:${colors[Math.random()*colors.length|0]};
+      border-radius:${Math.random()>.4?'50%':'2px'};
+      width:${size}px;height:${size}px;
+      animation-duration:${1.2+Math.random()*1.6}s;
+      animation-delay:${Math.random()*.7}s;
+      opacity:${.75+Math.random()*.25};
+    `;
+    wrap.appendChild(el);
+  }
+  setTimeout(()=>{ wrap.innerHTML=''; },5000);
+}
+
+/* ═══════════════════════════════════════════════
+   TOAST
+═══════════════════════════════════════════════ */
+function showToast(msg) {
+  const el=document.getElementById('toast');
+  el.textContent=msg; el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>el.classList.remove('show'),2000);
+}
+
+/* ═══════════════════════════════════════════════
+   GAME CONTROLS
+═══════════════════════════════════════════════ */
+function closeModal() { document.getElementById('overlay').classList.remove('show'); }
+function newGame()    { closeModal(); paused=false; document.getElementById('pauseScreen').classList.remove('show'); setTimeout(init,60); }
+function setDiff(el) {
+  document.querySelectorAll('.pill').forEach(p=>p.classList.remove('on'));
+  el.classList.add('on'); diff=el.dataset.d; newGame();
+}
+
+/* ═══════════════════════════════════════════════
+   NUMPAD
+═══════════════════════════════════════════════ */
+function buildNumpad() {
+  const pad=document.getElementById('numpad');
+  pad.innerHTML='';
+  for (let n=1;n<=9;n++) {
+    const btn=document.createElement('button');
+    btn.className='nbtn'; btn.dataset.n=n;
+    btn.innerHTML=`<span>${n}</span><span class="rem"></span>`;
+    btn.addEventListener('pointerdown', e => {
+      e.preventDefault();
+      if (paused||done) return;
+      if (notesMode) { if (sel>=0) inputNum(n); return; }
+      if (activeNum===n) {
+        activeNum=null; updNumpad();
+      } else {
+        activeNum=n;
+        if (sel>=0 && puzzle[sel]==null) inputNum(n);
+        else updNumpad();
+      }
+    });
+    pad.appendChild(btn);
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   KEYBOARD
+═══════════════════════════════════════════════ */
+document.addEventListener('keydown', e => {
+  // Always allow overlay close
+  if (e.key==='Escape') {
+    if (document.getElementById('overlay').classList.contains('show')) { closeModal(); return; }
+    activeNum=null; sel=-1; applyHL(); updNumpad(); updActionBtns(); return;
+  }
+  if (e.key==='p'||e.key==='P') { togglePause(); return; }
+  if (done) return;
+  if (paused) { if (e.key===' ') { e.preventDefault(); togglePause(); } return; }
+
+  if (e.key>='1'&&e.key<='9') {
+    e.preventDefault();
+    const n=+e.key;
+    if (notesMode) { if (sel>=0) inputNum(n); }
+    else { activeNum=n; if (sel>=0&&puzzle[sel]==null) inputNum(n); else updNumpad(); }
+  }
+  if (e.key==='0'||e.key==='Backspace'||e.key==='Delete') { e.preventDefault(); doErase(); }
+  if ((e.ctrlKey||e.metaKey)&&e.key==='z') { e.preventDefault(); doUndo(); }
+  if (e.key==='n'||e.key==='N') toggleNotes();
+  if (e.key==='h'||e.key==='H') doHint();
+  if (e.key==='a'||e.key==='A') doAutoNotes();
+
+  // Arrow navigation — wraps rows but not cols
+  const mv={ArrowUp:-9,ArrowDown:9,ArrowLeft:-1,ArrowRight:1};
+  if (mv[e.key]!==undefined) {
+    e.preventDefault();
+    const start = sel<0 ? 40 : sel;
+    if (e.key==='ArrowLeft'  && start%9===0) return;
+    if (e.key==='ArrowRight' && start%9===8) return;
+    const nx=Math.max(0,Math.min(80, start+mv[e.key]));
+    sel=nx; applyHL(); updActionBtns();
+  }
+});
+
+/* Deselect on outside tap */
+document.addEventListener('pointerdown', e => {
+  if (e.target.closest('.board')||e.target.closest('.numpad')||e.target.closest('.arow')||e.target.closest('.overlay')) return;
+  sel=-1; activeNum=null;
+  applyHL(); updNumpad(); updActionBtns();
+});
+
+/* ═══════════════════════════════════════════════
+   BOOT
+═══════════════════════════════════════════════ */
+buildNumpad();
+init();
+</script>
+</body>
+</html>
